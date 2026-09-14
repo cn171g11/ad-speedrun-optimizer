@@ -52,7 +52,49 @@
     return h.join('');
   }
 
+  function renderGuide() {
+    var G = global.S3GUIDE; if (!G) return;
+    function tb(rows, cols, hdr) {
+      var h = ['<div class="scroll"><table><thead><tr>' +
+        cols.map(function (c) { return '<th style="width:' + c[1] + '">' + c[0] + '</th>'; }).join('') +
+        '</tr></thead><tbody>'];
+      rows.forEach(function (r) {
+        h.push('<tr>' + r.map(function (v) {
+          return '<td style="font-size:12px;line-height:1.75">' + v + '</td>';
+        }).join('') + '</tr>');
+      });
+      h.push('</tbody></table></div>');
+      return h.join('');
+    }
+    var e1 = $('s3eternitySteps');
+    if (e1) e1.innerHTML = tb(G.ETERNITY_STEPS, [['#', '38px'], ['动作', '210px'], ['怎么做 / 阈值', ''], ['出处', '130px']]);
+    var e2 = $('s3realityLadder');
+    if (e2) e2.innerHTML = tb(G.REALITY_LADDER, [['阶段', '150px'], ['RM 区间', '120px'], ['里程碑', '90px'], ['关键操作', '']]);
+    var e3 = $('s3cel');
+    if (e3) e3.innerHTML = tb(G.CELESTIAL_TABLE, [['里程碑', '70px'], ['天体', '200px'], ['区间', '130px'], ['解锁条件与关键操作', '']]);
+    var e4 = $('s3pelle');
+    if (e4) e4.innerHTML = tb(G.PELLE_SHOCKS, [['阶段', '130px'], ['区间', '180px'], ['内容', '']]);
+    var e5 = $('s3setup');
+    if (e5) e5.innerHTML = tb(G.SETUP, [['项目', '150px'], ['内容', '']]);
+    var e6 = $('s3open');
+    if (e6) e6.innerHTML = tb(G.OPEN_NOTES, [['项目', '150px'], ['说明', '']]);
+    var e7 = $('s3sr');
+    if (e7) {
+      var h = ['<div class="scroll tall"><table><thead><tr><th>#</th><th>level</th>' +
+        '<th>世界纪录</th><th>备注</th></tr></thead><tbody>'];
+      (G.SR_LEVELS || []).forEach(function (r, i) {
+        var t = r[1];
+        h.push('<tr><td>' + (i + 1) + '</td><td><b>' + r[0] + '</b></td>' +
+          '<td>' + (t ? (t >= 3600 ? (t / 3600).toFixed(3) + ' 小时' : (t / 60).toFixed(2) + ' 分') : '<span style="color:#ff9d9d">0 runs</span>') + '</td>' +
+          '<td class="dim" style="font-size:11.5px">' + (r[2] || '') + '</td></tr>');
+      });
+      h.push('</tbody></table></div>');
+      e7.innerHTML = h.join('');
+    }
+  }
+
   function boot() {
+    renderGuide();
     var el = $('s3ms');
     if (el) {
       var ms = global.S3_MILESTONES || [];

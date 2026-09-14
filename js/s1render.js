@@ -444,10 +444,31 @@
     el.innerHTML = h.join('');
   }
 
+  // ── 成就清单（源码自动提取 + 模型收录情况）────────────────────────────
+  function renderAch() {
+    var el = $('s1ach'); if (!el) return;
+    var rows = D.ACH_LIST || [];
+    var mod = rows.filter(function (r) { return r[4]; }).length;
+    var h = ['<div class="ok-note">从源码提取到 <b>' + rows.length + '</b> 条有效果或值得记录的成就，' +
+      '其中本工具模型已收录 <b>' + mod + '</b> 条（最后一列的 ✓）。' +
+      '未收录的多为"指数/次数/长挂机"型加成，或属于现实之后的阶段。</div>',
+      '<div class="scroll tall" style="margin-top:10px"><table><thead><tr>' +
+      '<th>id</th><th>名称</th><th>效果值</th><th>作用对象</th><th>模型</th><th>原文</th>' +
+      '</tr></thead><tbody>'];
+    rows.forEach(function (r) {
+      h.push('<tr><td><b>r' + r[0] + '</b></td><td>' + r[1] + '</td>' +
+        '<td style="color:var(--gold)">' + r[2] + '</td><td>' + r[3] + '</td>' +
+        '<td>' + (r[4] ? '<span style="color:#7ee787">✓</span>' : '<span style="color:#ff9d9d">—</span>') + '</td>' +
+        '<td class="dim" style="font-size:11px">' + r[5] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    el.innerHTML = h.join('');
+  }
+
   function boot() {
     renderSteps(); renderIU(); renderLadder(); renderTimeline();
     renderConst(); renderOpen(); renderLive();
-    renderTiming(); renderTimingLive(); renderManual(); renderTick();
+    renderTiming(); renderTimingLive(); renderManual(); renderTick(); renderAch();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

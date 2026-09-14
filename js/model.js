@@ -126,6 +126,12 @@
       cond: function (s) { return s.ticksPerSecond >= 1e26; } },
     { id: 46, row: 5, name: '多维(D7>=1e12)', cond: function (s) { return s.dims[7] >= 1e12; } },
 
+    // ── 由 tools/_ach_inject.js 从源码自动提取的"维度倍率型"成就 ──
+    { id: 34, row: 3, name: 'You didn\'t need it anyway', effect: { dims: [1,2,3,4,5,6,7], mult: 1.02 } },
+    { id: 68, row: 6, name: 'You did this again just fo', effect: { dim: 1, mult: 1.5 },
+      cond: function (s) { return s.brk && s.bought.filter(function (b) { return b > 0; }).length >= 8; } },
+    { id: 72, row: 7, name: "Can't hold all these infinities", effect: { dims: [1,2,3,4,5,6,7,8], mult: 1.1 },
+      cond: function (s) { return s.brk && s.infinitiesTotal >= 1e8; } },
     // 以下需要突破无限之后才可能拿到，模型里保留但默认锁死
     { id: 48, row: 6, name: '抗挑战(通关全部普通挑战)', effect: { dims: [1, 2, 3, 4, 5, 6, 7, 8], mult: 1.1 }, locked: true },
     { id: 64, row: 8, name: '零死亡', effect: { dims: [1, 2, 3, 4, 5, 6, 7, 8], mult: 1.25 }, locked: true }
