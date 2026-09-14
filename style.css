@@ -211,3 +211,9 @@ table tr.act-row.cur td{background:linear-gradient(90deg,rgba(255,215,0,.2),rgba
   color:#fff;font-weight:600;box-shadow:inset 3px 0 0 var(--gold)}
 .tl-fill.fill-gal{background:linear-gradient(90deg,rgba(126,231,135,.9),rgba(63,185,80,.85))}
 .tl-fill.fill-inf{background:linear-gradient(90deg,#ffd700,#ff9d3d)}
+
+/* ===== 第二阶段页面 ===== */
+.row-2{display:flex;gap:10px}
+.row-2>span{flex:1;display:block}
+.ms-detail .src{margin-left:4px}
+a.tab{text-decoration:none;display:inline-block}

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>第二阶段 · 首次无限 → 首次永恒 | AD 速通优化器</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+  .ms-row{cursor:pointer}
+  .ms-row.sel td{background:rgba(88,166,255,.13)}
+  .ms-detail{margin-top:14px;padding:16px 18px;border-radius:14px;
+    background:rgba(8,12,20,.5);border:1px solid var(--stroke)}
+  .ms-detail h4{margin:0 0 8px;font-size:13px;color:var(--accent)}
+  .ms-detail ol,.ms-detail ul{margin:8px 0 0 18px;padding:0}
+  .ms-detail li{font-size:12.5px;color:var(--txt-dim);margin-bottom:5px;line-height:1.6}
+  .ms-detail .note{font-size:12px;color:var(--txt-mute);margin-top:10px;
+    padding-top:10px;border-top:1px dashed rgba(120,160,220,.2)}
+  .calc{display:grid;grid-template-columns:1fr;gap:12px}
+  .calc label{margin-bottom:4px}
+  .out{margin-top:10px;padding:12px 14px;border-radius:12px;background:rgba(8,12,20,.6);
+    border:1px solid var(--stroke);font-family:var(--mono);font-size:12.5px;line-height:1.9}
+  .out b{color:var(--gold)}
+  .out .k{color:var(--txt-mute)}
+  .src{font-size:11px;padding:1px 7px;border-radius:20px;display:inline-block}
+  .src.formula{background:rgba(126,231,135,.16);color:#9ff0a8}
+  .src.guide{background:rgba(88,166,255,.16);color:#9dcaff}
+  .src.derived{background:rgba(255,215,0,.16);color:#ffd700}
+  .warn{padding:14px 16px;border-radius:12px;background:rgba(255,107,107,.08);
+    border:1px solid rgba(255,107,107,.28);font-size:12.5px;color:#ffb3b3;line-height:1.75}
+  .ok-note{padding:14px 16px;border-radius:12px;background:rgba(126,231,135,.08);
+    border:1px solid rgba(126,231,135,.26);font-size:12.5px;color:#b9f0c4;line-height:1.75}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><i></i><i></i><i></i></div>
+
+<header class="topbar glass">
+  <div class="brand">
+    <span class="logo">Ⅱ</span>
+    <div>
+      <h1>第二阶段 · 首次无限 → 首次永恒</h1>
+      <p>Antimatter Dimensions Speedrun — Stage 2: Infinity → Eternity</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <a class="tab active" href="./index.html">&larr; 返回速通操作表</a>
+    <a class="tab" href="./stage2.html" id="selflink">本页</a>
+  </nav>
+</header>
+
+<main>
+  <div class="card glass wide">
+    <h2>阶段总览</h2>
+    <div id="overview" class="summary"></div>
+    <div class="ok-note" id="verifyNote"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>里程碑分段表（点行展开细节）</h2>
+    <p class="hint">里程碑取自<b>游戏内置速通里程碑</b>（源码 <code>secret-formula/speedrun-milestones.js</code>，共 25 个，本阶段覆盖 id 4~10），
+      并对照 <b>speedrun.com 的官方 level 列表</b>。时间来源分三档：<span class="src formula">公式计算</span>
+      <span class="src guide">攻略实测</span> <span class="src derived">推算</span>。</p>
+    <div class="scroll tall" id="msWrap"><table id="msTable"></table></div>
+    <div id="msDetail"></div>
+  </div>
+
+  <div class="grid">
+    <div class="card glass">
+      <h2>计算器 ①　单次无限收益</h2>
+      <div class="calc">
+        <div><label class="sub">本次无限达到的最高反物质 maxAM</label><input type="text" id="c1_am" value="1.797e308" /></div>
+        <div><label class="sub">IP 翻倍倍率（1x/2x/4x…）</label><input type="number" id="c1_mult" value="1" min="1" /></div>
+        <div><label class="sub">单次无限耗时（秒）</label><input type="number" id="c1_t" value="1.5" step="0.1" /></div>
+      </div>
+      <div class="out" id="c1_out"></div>
+      <p class="hint">公式：<code>IP = floor(IPmult × 10^(log10(maxAM)/308 − 0.75))</code>。
+        封顶时代入 1.797e308 得约 <b>1.78 × IPmult</b>；打破无限后 maxAM 每多 308 个数量级，IP 就 ×10。</p>
+    </div>
+
+    <div class="card glass">
+      <h2>计算器 ②　复制器增长</h2>
+      <div class="calc">
+        <div class="row-2">
+          <span><label class="sub">复制概率升级次数</label><input type="number" id="c2_ch" value="20" min="0" max="100" /></span>
+          <span><label class="sub">复制间隔升级次数</label><input type="number" id="c2_iv" value="30" min="0" /></span>
+        </div>
+        <div><label class="sub">目标复制器数量</label><input type="text" id="c2_tg" value="1.797e308" /></div>
+      </div>
+      <div class="out" id="c2_out"></div>
+      <p class="hint">复制器每「间隔」毫秒以「概率」翻倍一次：<code>复制间隔 = max(50ms, 1000×0.9^n)</code>、
+        <code>概率 = n×1%</code>。到 1.797e308 就能换 1 个复制器星系（重置复制器）。</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card glass">
+      <h2>计算器 ③　永恒冲刺</h2>
+      <div class="calc">
+        <div><label class="sub">当前 IP</label><input type="text" id="c3_ip" value="1e140" /></div>
+        <div><label class="sub">每次大坍缩平均让 IP 乘几倍</label><input type="number" id="c3_k" value="10" step="0.5" min="1.01" /></div>
+        <div><label class="sub">每次循环耗时（秒）</label><input type="number" id="c3_t" value="180" /></div>
+      </div>
+      <div class="out" id="c3_out"></div>
+      <p class="hint">永恒门槛 <code>1.8e308 IP</code>（不是 1e349 —— 攻略原文确认）。
+        复制器阶段 IP 近似按固定倍数指数增长，所以可以用「decades ÷ log10(k) × 单次耗时」估算总时长。</p>
+    </div>
+
+    <div class="card glass">
+      <h2>公式与来源</h2>
+      <div id="formulaBox" class="out" style="line-height:2"></div>
+    </div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>诚实的边界说明</h2>
+    <div class="warn" id="limitsBox"></div>
+  </div>
+</main>
+
+<footer class="glass">
+  <span>里程碑：游戏内置 speedrun-milestones.js + speedrun.com 官方 level 列表　·　公式：IvarK/AntimatterDimensionsSourceCode　·　流程与实测时间：《反物质维度安卓通关攻略》</span>
+  <span>Stage 2</span>
+</footer>
+
+<script src="js/stage2data.js"></script>
+<script src="js/stage2.js"></script>
+</body>
+</html>
