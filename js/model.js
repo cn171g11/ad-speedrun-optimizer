@@ -23,6 +23,14 @@
   // ---------------------------------------------------------------- 常量表
   var DIM_BASE_COST = [0, 10, 100, 1e4, 1e6, 1e9, 1e13, 1e18, 1e24];
   var DIM_COST_MULT = [0, 1e3, 1e4, 1e5, 1e6, 1e8, 1e10, 1e12, 1e15];
+  // ── 无限维度（源码 dimensions/infinity-dimension.js）──────────────────
+  //   UNLOCK 用「本次永恒内的最高 AM」判定；ID1 额外需要 1e8 IP
+  var ID_UNLOCK = [0, 1e1100, 1e1900, 1e2400, 1e10500, 1e30000, 1e45000, 1e54000, 1e60000];
+  var ID_BASE_COST = [0, 1e8, 1e9, 1e10, 1e20, 1e140, 1e200, 1e250, 1e280];
+  var ID_COST_MULT = [0, 1e3, 1e6, 1e8, 1e10, 1e15, 1e20, 1e25, 1e30];
+  var ID_POWER_MULT = [0, 50, 30, 10, 5, 5, 5, 5, 5];   // 每次购买给的倍率底数
+  var ID_POWER_CONV = 7;                                  // 无限之力 → AD 倍率 = IPower^7
+
   // C6 专用价格表（源码 antimatter-dimension.js 的 _c6BaseCost / _c6BaseCostMultiplier）
   var C6_BASE_COST = [0, 10, 100, 100, 500, 2500, 2e4, 2e5, 4e6];
   var C6_BASE_COST_MULT = [0, 1e3, 5e3, 1e4, 1.2e4, 1.8e4, 2.6e4, 3.2e4, 4.2e4];
@@ -216,6 +224,10 @@
       challenge: opts.challenge || 0,   // 0 = 无挑战；1..12 = 普通挑战
       chall2Pow: 1, chall3Pow: 0.01, chall8Sac: 1, normalMatter: 0,
       maxSacNext: 1,            // 单次献祭最大倍率（成就 88）
+      // ---- 无限维度（打破无限后才存在；默认关闭，不影响第一阶段与 S1）----
+      brk: !!opts.brk,          // 是否已打破无限
+      idAmt: [0,0,0,0,0,0,0,0,0], idBought: [0,0,0,0,0,0,0,0,0],
+      infPower: 0, maxAMAll: opts.maxAMAll || 0,
       crunches: 0, ip: opts.ip || 0, ipMult: opts.ipMult || 1,
       costBumps: [0, 0, 0, 0, 0, 0, 0, 0, 0], chall9TickBumps: 0, tSinceBuy: 1e9,
       infinitiesTotal: opts.infinitiesTotal || 0,
@@ -243,6 +255,8 @@
       hold1e80: s.hold1e80, maxDimMult: s.maxDimMult, ticksPerSecond: s.ticksPerSecond,
       challenge: s.challenge, chall2Pow: s.chall2Pow, chall3Pow: s.chall3Pow,
       chall8Sac: s.chall8Sac, normalMatter: s.normalMatter, maxSacNext: s.maxSacNext,
+      brk: s.brk, idAmt: s.idAmt.slice(), idBought: s.idBought.slice(),
+      infPower: s.infPower, maxAMAll: s.maxAMAll,
       crunches: s.crunches, ip: s.ip, ipMult: s.ipMult,
       costBumps: s.costBumps.slice(), chall9TickBumps: s.chall9TickBumps, tSinceBuy: s.tSinceBuy,
       infinitiesTotal: s.infinitiesTotal, iu: Object.assign({}, s.iu), ipMultLv: s.ipMultLv,
@@ -402,6 +416,7 @@
       if (v2 > 1) iuCommon *= v2;
     }
     if (iu.buy10) iuCommon *= 1;                       // buy10 只影响买十倍率，见下
+    iuCommon *= infPowerEffect(s);                     // 无限之力^7（仅打破无限后）
     // 买满 10 个的倍率（C7 会被压到 ×1，每次提升 +0.2）
     var buy10 = BUY_TEN_MULT;
     if (iu.buy10) buy10 *= 1.1;
@@ -465,6 +480,8 @@
       s.am = am > INFINITY_AM ? INFINITY_AM : am;
     }
     s.time += dt;
+    if (s.am > (s.maxAMAll || 0)) s.maxAMAll = s.am;
+    idTick(s, dt);
 
     // ---- 挑战的每帧演化（normal-challenges.js: updateNormalAndInfinityChallenges）
     if (s.challenge === 2) {
@@ -597,7 +614,55 @@
     s.t = 0; s.tTotal += 0;
     s.boosts = 0; s.galaxies = 0;
     applyReset(s);
+    idReset(s);            // 无限之力清零、ID 数量回到 baseAmount
     return gained;
+  }
+  // ------------------------------------------------ 无限维度 / 无限之力
+  function idUnlocked(s, t) {
+    if (!s.brk) return false;
+    if (t === 1 && !(s.ip >= 1e8)) return false;        // ID1 额外要 1e8 IP（pre-eternity）
+    return (s.maxAMAll || 0) >= ID_UNLOCK[t];
+  }
+  /** 第 t 层倍率：含 powerMultiplier^(已购次数) —— 50^p / 30^p / 10^p / 5^p */
+  function idMult(s, t) { return Math.pow(ID_POWER_MULT[t], s.idBought[t]); }
+  function idProduction(s, t) { return s.idAmt[t] * idMult(s, t); }
+  function idCost(s, t) { return ID_BASE_COST[t] * Math.pow(ID_COST_MULT[t], s.idBought[t]); }
+  /** 买 1 次 = amount 与 baseAmount 同时 +10（永久保留，源码 269~270 行） */
+  function buyID(s, t) {
+    if (!idUnlocked(s, t)) return false;
+    var c = idCost(s, t);
+    if (!(s.ip >= c)) return false;
+    s.ip -= c; s.idAmt[t] += 10; s.idBought[t] += 1;
+    return true;
+  }
+  function buyMaxID(s, t) {
+    var k = 0;
+    while (k++ < 2000 && buyID(s, t)) { /* keep buying */ }
+    return k - 1;
+  }
+  /**
+   * 大坍缩 / 进入挑战时的无限维度处理（源码 InfinityDimensions.resetAmount）
+   *   无限之力 → 0；每个 ID 的 amount → baseAmount（= 10 × 已购次数，**不清零**）
+   *   这就是"挑战里加成仍然有用"的来源：买过的 ID 不会丢
+   */
+  function idReset(s) {
+    s.infPower = 0;
+    for (var t = 1; t <= 8; t++) s.idAmt[t] = s.idBought[t] * 10;
+  }
+  /** 每帧：ID8→ID2 依次给下一层，ID1 产无限之力 */
+  function idTick(s, dt) {
+    if (!s.brk) return;
+    for (var t = 8; t >= 2; t--) {
+      if (!idUnlocked(s, t)) continue;
+      s.idAmt[t - 1] += idProduction(s, t) * dt / 10;      // produceDimensions(diff/10)
+    }
+    if (idUnlocked(s, 1)) s.infPower += idProduction(s, 1) * dt / 1000;
+  }
+  /** 无限之力给全部反物质维度的倍率 = IPower^7（下限 1） */
+  function infPowerEffect(s) {
+    if (!s.brk || !(s.infPower > 1)) return 1;
+    var v = Math.pow(s.infPower, ID_POWER_CONV);
+    return isFinite(v) ? v : 1.7976931348623157e308;
   }
   function ipGain(s) {
     var maxAM = Math.max(s.maxAM, s.am, 1);
@@ -637,6 +702,13 @@
       applyReset: applyReset, bigCrunch: bigCrunch, ipGain: ipGain,
       costBump: costBump, costBumpTick: costBumpTick,
       maxDimsOf: maxDimsOf, reqOf: reqOf, tickSpeedFactorOf: tickSpeedFactorOf
+    },
+    id: {
+      UNLOCK: ID_UNLOCK, BASE_COST: ID_BASE_COST, COST_MULT: ID_COST_MULT,
+      POWER_MULT: ID_POWER_MULT, POWER_CONV: ID_POWER_CONV,
+      unlocked: idUnlocked, mult: idMult, production: idProduction, cost: idCost,
+      buy: buyID, buyMax: buyMaxID, reset: idReset, tick: idTick,
+      infPowerEffect: infPowerEffect
     }
   };
 })(typeof window !== 'undefined' ? window : globalThis);

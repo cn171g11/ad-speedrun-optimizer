@@ -154,23 +154,82 @@
       why: '买维度或计数频率会让全部维度停产，按 <code>chall2Pow += dt/180</code> 花 3 分钟线性恢复。买得越少恢复越快 → 攒够一次买一大批' },
 
     // ── D ──────────────────────────────────────────────────────────────
-    { g: 'D', n: 28, act: '把 IP 攒到 <b>100 以上</b>',
+    { g: 'D', n: 28, act: '★ <b>先打破无限，再回来打 C9</b>（这一步是"最优开始时机"的核心）',
+      buy: '买 IP 翻倍到 ×16，然后 1e4 IP 买打破无限升级1（totalAMMult）',
+      cost: '1e4 IP',
+      why: '★ 挑战不是"一解锁就要打"。源码里进入挑战 = 一次强制大坍缩，它会清掉反物质/维度/计数频率/<b>无限之力</b>，' +
+           '但 <b>不会清掉你已经买过的无限维度</b>（ID 数量只回到 baseAmount = 10×已购次数）。' +
+           'ID1 的倍率是 <b>50^已购次数</b>，而无限之力给全部反物质维度 <b>×IPower^7</b>。' +
+           '所以先把 IP 刷到买得起 ID1（1e8 IP），再进 C9：<b>挑战本身从"打不过"变成 5.7 分钟</b>，总耗时 23 分钟；' +
+           '而立刻进则 30 分钟内打不通' },
+    { g: 'D', n: 29, act: '攒到 <b>1e8 IP</b> → 买 <b>ID1</b>（第 1 次购买）',
+      buy: '无限维度 1：1e8 IP（另需 maxAM ≥ 1e1100，打破无限后自然满足；ID1 还额外要求 IP ≥ 1e8）',
+      cost: '1e8 IP',
+      why: '买 1 次 ID1：数量 10、倍率 50 → 产量 500/秒 → 无限之力 +0.5/秒 → 几分钟后 IPower^7 就能到 1e15 量级。' +
+           '这就是"进挑战时你点的加成仍然存在"的实际含义 —— 它是挑战里唯一的倍率来源' },
+    { g: 'D', n: 30, act: '进 C9（此时挑战里只剩 5 分钟左右）',
+      buy: '—', cost: '—',
+      why: '打破无限后 AM 可以超过 1.797e308，C9 的目标仍然是"限制下达到 1.797e308 AM"，所以变得很快' },
+    { g: 'D', n: 31, act: '把 IP 攒到 <b>100 以上</b>',
       buy: '顺便把 IP 翻倍买到 ×8 或 ×16', cost: '1e3 / 1e4 IP',
       why: 'C9 里几乎没有稳定收入，全靠开局带进去的资源' },
-    { g: 'D', n: 29, act: '★ <b>关掉所有卡键 / 粘滞键</b>', buy: '—（必须关）', cost: '—',
+    { g: 'D', n: 32, act: '★ <b>关掉所有卡键 / 粘滞键</b>', buy: '—（必须关）', cost: '—',
       why: 'C9 的机制是"买计数频率或买满 10 个维度 → 所有同价位的东西价格跳下一档"（源码 multiplySameCosts，按成本<b>指数</b>相等判定）。卡键 = 自动购买器全开 = 把价格自己抬到买不动，直接锁死' },
-    { g: 'D', n: 30, act: '自动购买器只留<b>第 8 维度 + 维度提升 + 星系</b>',
+    { g: 'D', n: 33, act: '自动购买器只留<b>第 8 维度 + 维度提升 + 星系</b>',
       buy: '—（购买器设置）', cost: '—',
       why: '第 8 维度必须留着（它是链条唯一顶端）；1~7 维度全部手动' },
-    { g: 'D', n: 31, act: '手动买：<b>7 → 6 → 5 → 4 → 3 → 2 → 1</b>，每次买"能买多少买多少"',
+    { g: 'D', n: 34, act: '手动买：<b>7 → 6 → 5 → 4 → 3 → 2 → 1</b>，每次买"能买多少买多少"',
       buy: '按维度的"最大购买"逐档买', cost: '—',
       why: 'C9 里同价涨价，单次买得越多越省；同价位优先买高维，避免高维价格被低维先抬起来' },
-    { g: 'D', n: 32, act: '卡住就点挑战界面的「失去一个维度提升」，从第 31 步重来',
+    { g: 'D', n: 35, act: '卡住就点挑战界面的「失去一个维度提升」，从第 31 步重来',
       buy: '—（重置价格阶梯）', cost: '—',
       why: 'C9 里维度提升是唯一能重置价格阶梯的手段' },
-    { g: 'D', n: 33, act: '第 8 维度买到约 <b>100 个</b> → <b>通关 C9</b> ★',
+    { g: 'D', n: 36, act: '第 8 维度买到约 <b>100 个</b> → <b>通关 C9</b> ★',
       buy: '奖励：可升级的计数频率自动购买器', cost: '—',
       why: '里程碑达成：官方速通里程碑 #4 Tickspeed Challenge' }
+  ];
+
+
+  // ── 挑战起始时机（为什么不能"一解锁就进"）──────────────────────────────
+  //    源码依据：陷入挑战 = 强制一次大坍缩（NormalChallenge.start → bigCrunchReset）
+  //    大坍缩清掉反物质/维度/计数频率，但**不清掉已购的无限维度**：
+  //      · InfinityDimensions.resetAmount()：无限之力 → 0
+  //      · 每个 ID 的 amount → baseAmount = 10 × 已购次数（不清零）
+  //      · ID 倍率含 powerMultiplier^(已购次数)：ID1 = 50^p、ID2 = 30^p、ID3 = 10^p、ID4~8 = 5^p
+  //      · 无限之力 → 全部反物质维度 ×IPower^7（powerConversionRate = 7）
+  var TIMING_MECH = [
+    ['进挑战时会被清掉', '反物质、8 个反物质维度、计数频率、维度提升、星系、献祭计数、<b>无限之力（归 0）</b>', 'big-crunch.js secondSoftReset / dimboost.js softReset'],
+    ['进挑战时<b>不会</b>被清掉', '<b>无限维度的购买次数</b>（amount 只回到 baseAmount = 10×已购次数）、IP、无限升级、成就、打破无限升级、复制器星系', 'infinity-dimension.js resetAmount'],
+    ['所以 ID 是"白送的开局"', '买过 1 次 ID1 → 进挑战后 ID1 立刻以 10×50 的产量启动；无限之力从第 1 帧开始涨', 'infinity-dimension.js tick'],
+    ['倍率是怎么放大的', 'ID1 倍率 = 50^已购次数 → 产量 = 数量 × 倍率 → 无限之力每秒涨 = ID1产量/1000 → AD 倍率 = IPower^7', 'multiplier-tab/antimatter-dimensions.js'],
+    ['结论', '<b>进挑战的最佳时机不是"解锁那一刻"，而是"买得起 ID 之后"</b>。先把 IP 刷到能买 ID1，再进挑战，总耗时反而更短', '本工具的扫描（下表）']
+  ];
+
+  // 扫描结果：从 1e7 IP、已打破无限的状态出发，C9 的"筹备 vs 挑战"权衡
+  var TIMING_C9 = [
+    { id1: 0, need: 0,          prep: 0,       chal: null,                total: null,        note: '30 分钟上限内没打通（未打破无限时的 C9 是硬骨头）' },
+    { id1: 1, need: 1e8,        prep: 17.39 * 60, chal: 5.68 * 60,       total: 23.07 * 60,  best: true, note: '★ 最优：先攒 1e8 IP 买 1 次 ID1，再进 C9' },
+    { id1: 2, need: 1.001e11,   prep: 1.452 * 3600, chal: 5.0,          total: 1.452 * 3600, note: 'C9 只剩 5 秒，但筹备本身要 1.45 小时' },
+    { id1: 3, need: 1.001e14,   prep: 161.575 * 3600, chal: 1.8,        total: 161.575 * 3600, note: '已超出攻略实测速率区间，数字仅供参考' }
+  ];
+
+  // 其它挑战的"立刻进 vs 最优准备"（打破无限后，从 1e7 IP 出发）
+  var TIMING_OTHERS = [
+    { ch: 2,  now: 15.06 * 60, withId1: 17.0,  best: '买 1 次 ID1', note: 'C2 的 3 分钟停产恢复用 ID 倍率直接压过去' },
+    { ch: 3,  now: 14.1,       withId1: 7.0,   best: '买 1 次 ID1', note: '第 1 维被削弱，但 ID 倍率不看反物质维度' },
+    { ch: 5,  now: 16.5,       withId1: 7.6,   best: '买 1 次 ID1', note: '计数频率基准变差，靠无限之力补回来' },
+    { ch: 7,  now: 26.5 / 60 * 60, withId1: 7.4, best: '买 1 次 ID1', note: '买十倍率被压到 ×1，同样靠 ID 绕过' },
+    { ch: 12, now: 34.6,       withId1: 8.9,   best: '买 1 次 ID1', note: '产出链变成"低 2 档"，ID 倍率不受影响' }
+  ];
+
+  // 打破无限前：扫"多刷 N 次再进"的结果（结论：几乎不需要等）
+  var TIMING_PRE = [
+    { ch: 3,  farm: 19.0, now: 25.1, best: 0, bestTime: 25.1, why: 'IU23 的未花费 IP 加成在 IP 只有几十~几百时太弱（×(IP/2)^1.5），等一档就多花 19 秒，不划算' },
+    { ch: 5,  farm: 19.0, now: 30.3, best: 0, bestTime: 30.3, why: '同上' },
+    { ch: 7,  farm: 19.0, now: 26.5, best: 0, bestTime: 26.5, why: '同上' },
+    { ch: 6,  farm: 19.0, now: 106,  best: 0, bestTime: 106,  why: '同上' },
+    { ch: 12, farm: 19.0, now: 67.2, best: 0, bestTime: 67.2, why: '同上' },
+    { ch: 2,  farm: 19.0, now: 1006, best: 0, bestTime: 1006, why: 'C2 的问题是"停产 3 分钟"，第 1 维度倍率救不了它 —— 纯靠时间恢复，所以早打晚打一样' }
   ];
 
   // ── 单次无限耗时阶梯：仿真 vs 攻略实测 ────────────────────────────────
@@ -237,5 +296,7 @@
   ];
 
   global.S1DATA = { IU_GRID: IU_GRID, GROUPS: GROUPS, STEPS: STEPS, LADDER: LADDER,
-    TIMELINE: TIMELINE, CONST: CONST, OPEN: OPEN };
+    TIMELINE: TIMELINE, CONST: CONST, OPEN: OPEN,
+    TIMING_MECH: TIMING_MECH, TIMING_C9: TIMING_C9, TIMING_OTHERS: TIMING_OTHERS,
+    TIMING_PRE: TIMING_PRE };
 })(typeof window !== 'undefined' ? window : globalThis);

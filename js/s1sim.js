@@ -126,11 +126,24 @@
       platform: 'pc', challenge: cfg.challenge || 0,
       infinitiesTotal: cfg.infinities || 1,
       iu: iuFlags(cfg.iuSet || {}),
-      ipMultLv: 0
+      ipMultLv: 0,
+      brk: !!cfg.brk
     });
     st.achs = cfg.achOverride ? cfg.achOverride : baseAchs(cfg.extraAchs);
-    st.ip = cfg.ip || 0;
+    st.ip = cfg.ipStock !== undefined ? cfg.ipStock : (cfg.ip || 0);
     st.ipMult = cfg.ipMult || 1;
+    // 打破无限后：可以带着已购的无限维度进挑战（进入 = 一次大坍缩：
+    // 无限之力清零、ID 数量回到 baseAmount = 10×已购次数，但购买次数永久保留）
+    if (cfg.id1) { st.idBought[1] = cfg.id1; st.idAmt[1] = cfg.id1 * 10; }
+    for (var _t = 1; _t <= 8; _t++) {
+      if (cfg.idBought && cfg.idBought[_t]) {
+        st.idBought[_t] = cfg.idBought[_t]; st.idAmt[_t] = cfg.idBought[_t] * 10;
+      }
+    }
+    st.infPower = cfg.infPower || 0;
+    // 本永恒最高 AM：决定无限维度是否解锁（一旦达成过就永久解锁）
+    st.maxAMAll = cfg.maxAMAll !== undefined ? cfg.maxAMAll
+      : (cfg.id1 ? 1e60000 : 0);
     st.achDirty = true;
     // 起始状态 = 一次大坍缩之后（skipReset 已经生效）
     st.boosts = S1.startingBoosts(st);
@@ -249,6 +262,8 @@
       boosts: st.boosts, galaxies: st.galaxies, ticks: st.ticksBought,
       bought: st.bought.slice(), dims: st.dims.slice(),
       sacCount: sacAt.length, boosts_: boostAt.length,
+      infPower: st.infPower, idBought: st.idBought.slice(),
+      idAmounts: st.idAmt.slice(), ipLeft: st.ip, maxAMAll: st.maxAMAll,
       finalSacBoost: window.AD.s1.totalBoostOf(st), maxSacNext: st.maxSacNext,
       firstBuy: firstBuy, boostAt: boostAt, galAt: galAt,
       log: log,

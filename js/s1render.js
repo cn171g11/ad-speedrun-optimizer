@@ -200,9 +200,114 @@
     });
   }
 
+  // ── 挑战起始时机 ──────────────────────────────────────────────────────
+  function renderTiming() {
+    var el = $('s1timing'); if (!el) return;
+    var h = ['<div class="scroll"><table><thead><tr><th style="width:150px">项目</th>' +
+      '<th>内容</th><th style="width:200px">源码位置</th></tr></thead><tbody>'];
+    (D.TIMING_MECH || []).forEach(function (r) {
+      h.push('<tr><td><b>' + r[0] + '</b></td><td style="font-size:12px;line-height:1.7">' + r[1] + '</td>' +
+        '<td style="color:var(--txt-mute);font-size:11px">' + r[2] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">C9：进挑战前先买几次 ID1？（扫描结果）</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>ID1 已购</th><th>需要的 IP</th>' +
+      '<th>筹备耗时</th><th>C9 耗时</th><th>总耗时</th><th>说明</th></tr></thead><tbody>');
+    (D.TIMING_C9 || []).forEach(function (r) {
+      h.push('<tr' + (r.best ? ' style="background:rgba(126,231,135,.10)"' : '') + '>' +
+        '<td>' + r.id1 + ' 次</td>' +
+        '<td>' + (r.need ? fmtNum(r.need) + ' IP' : '—') + '</td>' +
+        '<td>' + fmtT(r.prep) + '</td>' +
+        '<td>' + (r.chal === null ? '<span style="color:#ff9d9d">未达成</span>' : fmtT(r.chal)) + '</td>' +
+        '<td><b>' + (r.total === null ? '—' : fmtT(r.total)) + '</b></td>' +
+        '<td style="color:var(--txt-dim);font-size:12px">' + r.note + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">其它挑战：立刻进 vs 买 1 次 ID1 再进</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>挑战</th><th>立刻进</th><th>买 1 次 ID1 再进</th>' +
+      '<th>提速</th><th>说明</th></tr></thead><tbody>');
+    (D.TIMING_OTHERS || []).forEach(function (r) {
+      h.push('<tr><td><b>C' + r.ch + '</b></td><td>' + fmtT(r.now) + '</td>' +
+        '<td style="color:#7ee787"><b>' + fmtT(r.withId1) + '</b></td>' +
+        '<td>' + (r.now / r.withId1).toFixed(1) + '×</td>' +
+        '<td style="color:var(--txt-dim);font-size:12px">' + r.note + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">打破无限前：要不要"先多刷几次再进"？（结论：基本不用）</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>挑战</th><th>每次刷无限</th><th>立刻进</th>' +
+      '<th>最优等待</th><th>最优总耗时</th><th>为什么</th></tr></thead><tbody>');
+    (D.TIMING_PRE || []).forEach(function (r) {
+      h.push('<tr><td><b>C' + r.ch + '</b></td><td>' + r.farm + ' 秒</td><td>' + fmtT(r.now) + '</td>' +
+        '<td>' + (r.best === 0 ? '0 次（立刻进）' : r.best + ' 次') + '</td>' +
+        '<td><b>' + fmtT(r.bestTime) + '</b></td>' +
+        '<td style="color:var(--txt-dim);font-size:12px">' + r.why + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    el.innerHTML = h.join('');
+  }
+
+  // ── 现场扫描：挑战起始时机 ────────────────────────────────────────────
+  function renderTimingLive() {
+    var el = $('s1timinglive'); if (!el) return;
+    if (!global.TIMING) {
+      el.innerHTML = '<div class="warn">扫描器未加载（js/timing.js）</div>';
+      return;
+    }
+    el.innerHTML = '<div class="grid" style="grid-template-columns:1fr 1fr 1fr 1fr">' +
+      '<div><label class="sub">挑战</label><select id="tg_ch">' +
+      [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(function (c) {
+        return '<option value="' + c + '"' + (c === 9 ? ' selected' : '') + '>C' + c + '</option>';
+      }).join('') + '</select></div>' +
+      '<div><label class="sub">起点 IP</label><input type="text" id="tg_ip" value="1e7" /></div>' +
+      '<div><label class="sub">最多买几次 ID1</label><input type="number" id="tg_max" value="3" min="0" max="8" /></div>' +
+      '<div><label class="sub">扫描</label><button class="btn" id="tg_go">开始扫描</button></div>' +
+      '</div><div id="tg_out"></div>';
+    var go = $('tg_go');
+    if (!go) return;
+    go.addEventListener('click', function () {
+      var ch = parseInt($('tg_ch').value, 10);
+      var ip0 = parseFloat($('tg_ip').value) || 1e7;
+      var mx = parseInt($('tg_max').value, 10) || 0;
+      var out = $('tg_out');
+      out.innerHTML = '<p class="hint">扫描中…（每个档位都要跑一次挑战仿真）</p>';
+      setTimeout(function () {
+        var ALL = ['IU11','IU12','IU13','IU21','IU22','IU23','IU31','IU32','IU33','IU41','IU42',
+                   'IU14','IU24','IU34','IU43','IU44'];
+        var set = {}; ALL.forEach(function (k) { set[k] = true; });
+        var ach = global.S1SIM.achSet(6, [54,61,62,63,64,65,66,67,68,74,75,76,77,78]);
+        var sw = global.TIMING.sweepPostBreak({
+          iuSet: set, challenge: ch, infinities: 1000, ipStart: ip0, ipMult: 16,
+          ach: ach, minPrep: 0, maxPrep: mx, dt: 1 / 60, maxSeconds: 1800
+        });
+        var rows = sw.rows, best = null;
+        rows.forEach(function (r) { if (r.total !== null && (best === null || r.total < best.total)) best = r; });
+        var h = ['<div class="scroll" style="margin-top:12px"><table><thead><tr>' +
+          '<th>ID1 已购</th><th>需要 IP</th><th>筹备</th><th>C' + ch + ' 耗时</th><th>总耗时</th></tr></thead><tbody>'];
+        rows.forEach(function (r) {
+          h.push('<tr' + (best && r === best ? ' style="background:rgba(126,231,135,.12)"' : '') + '>' +
+            '<td>' + r.prep + ' 次</td><td>' + (r.ipNeed ? fmtNum(r.ipNeed) : '—') + '</td>' +
+            '<td>' + fmtT(r.prepTime) + '</td>' +
+            '<td>' + (r.chalTime === null ? '未达成' : (r.ok ? fmtT(r.chalTime) : fmtT(r.chalTime) + '（超时）')) + '</td>' +
+            '<td><b>' + (r.total === null ? '—' : fmtT(r.total)) + '</b></td></tr>');
+        });
+        h.push('</tbody></table></div>');
+        if (best) {
+          h.push('<div class="ok-note" style="margin-top:12px">★ 最优：先攒到 <b>' + fmtNum(best.ipNeed) +
+            ' IP</b>（筹备 ' + fmtT(best.prepTime) + '）买 <b>' + best.prep + ' 次 ID1</b>，再进 C' + ch +
+            ' → 总耗时 <b>' + fmtT(best.total) + '</b></div>');
+        }
+        out.innerHTML = h.join('');
+      }, 30);
+    });
+  }
+
   function boot() {
     renderSteps(); renderIU(); renderLadder(); renderTimeline();
     renderConst(); renderOpen(); renderLive();
+    renderTiming(); renderTimingLive();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

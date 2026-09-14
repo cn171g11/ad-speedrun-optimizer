@@ -24,7 +24,7 @@
     <h2>这一段在干什么（一句话）</h2>
     <p class="hint">你手上有 <b>1 IP</b>，目标是<b>通关 C9</b>。中间没有任何"捷径"：<b>每一次大坍缩只给 1 × IP倍率 的 IP</b>
       （因为封顶时 IP = floor(1.7817)），所以整段就是一个循环 —— <b>刷无限拿 IP → 买无限升级 → 单次无限变快 → 更快地拿 IP</b>。
-      核心指标只有一个：<b>单次无限耗时</b>。它每掉一档，刷 IP 速率就上一个数量级。</p>
+      核心指标只有一个：<b>单次无限耗时</b>。它每掉一档，刷 IP 速率就上一个数量级。<br><b>另外一条同样重要的规则：挑战不要在解锁那一刻就打</b> —— 见下方「挑战起始时机」，先把 IP 刷到买得起无限维度（ID），再进挑战，总耗时反而更短。</p>
     <div class="ok-note" style="margin-top:12px">
       <b>最重要的隐藏门槛（源码级）</b>：「IP 翻倍」和「离线 IP」两个升级的解锁条件是
       <code>Achievement(41) = 买满 16 个无限升级</code>。也就是说 —— <b>在买满 16 个无限升级之前，你每次无限都只能拿到 1 IP</b>；
@@ -34,7 +34,7 @@
   </div>
 
   <div class="card glass wide">
-    <h2>分步操作表（33 步 · 每步给出"买什么"）</h2>
+    <h2>分步操作表（36 步 · 每步给出"买什么"）</h2>
     <div id="s1steps"></div>
   </div>
 
@@ -54,6 +54,19 @@
     <div id="s1live"></div>
     <p class="hint" style="margin-top:14px">说明：日志里"首次买入第 k 维度（买 n 个）"表示这一帧内买满可负担的数量（等价于按住「最大」）；
       "第 k 次维度提升"给出当时的 AM 与需求；C9/C8 需要手动逐档买，页面里的策略是"从高维往低维买满"。</p>
+  </div>
+
+  <div class="card glass wide">
+    <h2>★ 挑战起始时机：为什么"不能一解锁就进"</h2>
+    <p class="hint">你提到的那点正是这一段的隐藏杠杆：<b>进挑战不会丢掉你已经买的无限维度</b>。
+      源码里进入挑战 = 一次强制大坍缩，它会清掉反物质 / 8 个反物质维度 / 计数频率 / 维度提升 / 星系，
+      连<b>无限之力都归 0</b> —— 但 <b>每个 ID 的购买次数永久保留</b>，ID 数量只是回到
+      <code>baseAmount = 10 × 已购次数</code>。而 ID1 的倍率是 <b>50^已购次数</b>，
+      无限之力又给全部反物质维度 <b>×IPower^7</b>。所以"先攒钱买 ID，再进挑战"能把挑战时长压掉一到两个数量级。</p>
+    <div id="s1timing"></div>
+    <h3 style="font-size:13px;color:var(--gold);margin:26px 0 8px">现场扫描：输入起点 IP，扫出最优进挑战时机</h3>
+    <p class="hint">下面这一块是真的在跑：每个档位都会完整仿真一次挑战，算出"筹备耗时 + 挑战耗时"的极小值。</p>
+    <div id="s1timinglive"></div>
   </div>
 
   <div class="card glass wide">
@@ -81,6 +94,7 @@
 <script src="js/s1data.js"></script>
 <script src="js/model.js"></script>
 <script src="js/s1sim.js"></script>
+<script src="js/timing.js"></script>
 <script src="js/s1render.js"></script>
 </body>
 </html>
