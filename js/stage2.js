@@ -168,7 +168,8 @@
   }
 
   // ------------------------------------------------------------- 公式框
-  $('formulaBox').innerHTML = [
+  var _fb = $('formulaBox');
+  if (_fb) _fb.innerHTML = [
     '<div><b>IP 收益</b><br><span style="color:#a8d1ff">IP = floor(IPmult × 10^(log10(maxAM)/308 − 0.75))</span>' +
     '<br><span class="k">infinity-points.js；成就 103 / TS111 会把 308 改小</span></div>',
     '<div style="margin-top:10px"><b>无限维度</b><br>' +
@@ -184,7 +185,8 @@
   ].join('');
 
   // ------------------------------------------------------------- 边界说明
-  $('limitsBox').innerHTML = [
+  var _lb = $('limitsBox');
+  if (_lb) _lb.innerHTML = [
     '<b>1. 这不是完整仿真。</b>第一阶段（10 AM → 首次大坍缩）我做到了逐 tick 仿真 + 阶段图最短路；' +
     '第二阶段做不到，原因是打破无限后反物质会远超 IEEE754 double 的 1.8e308 上限，' +
     '要精确仿真必须引入任意精度十进制数（源码用的是 break_infinity.js）。本页的模型是<b>分段的解析/半解析模型</b>，不是逐帧模拟。',
@@ -202,10 +204,19 @@
   ].join('');
 
   // ------------------------------------------------------------- 绑定
-  ['c1_am', 'c1_mult', 'c1_t'].forEach(function (id) { $(id).addEventListener('input', calc1); });
-  ['c2_ch', 'c2_iv', 'c2_tg'].forEach(function (id) { $(id).addEventListener('input', calc2); });
-  ['c3_ip', 'c3_k', 'c3_t'].forEach(function (id) { $(id).addEventListener('input', calc3); });
+  // 各页面只渲染自己需要的部分（拆页后同一脚本被多页引用）
+  ['c1_am', 'c1_mult', 'c1_t'].forEach(function (id) {
+    var el = $(id); if (el) el.addEventListener('input', calc1);
+  });
+  ['c2_ch', 'c2_iv', 'c2_tg'].forEach(function (id) {
+    var el = $(id); if (el) el.addEventListener('input', calc2);
+  });
+  ['c3_ip', 'c3_k', 'c3_t'].forEach(function (id) {
+    var el = $(id); if (el) el.addEventListener('input', calc3);
+  });
 
-  renderMs();
-  calc1(); calc2(); calc3();
+  if ($('msTable')) renderMs();
+  if ($('c1_out')) calc1();
+  if ($('c2_out')) calc2();
+  if ($('c3_out')) calc3();
 })();

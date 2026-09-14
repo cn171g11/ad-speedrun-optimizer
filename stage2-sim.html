@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>③ 逐 tick 仿真 | AD 速通优化器</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="bg-orbs"><i></i><i></i><i></i></div>
+<header class="topbar glass">
+  <div class="brand">
+    <span class="logo">③</span>
+    <div>
+      <h1>逐 tick 仿真（只用公式，不抄攻略时间）</h1>
+      <p>对数空间大数运算　·　验证项 / 拟合对拍 / 卡点诊断 / 修掉的真 bug</p>
+    </div>
+  </div>
+</header>
+<main>
+  <nav class="subnav glass" id="subnav"></nav>
+
+  <div class="card glass wide">
+    <h2>方法论</h2>
+    <p class="hint">打破无限后反物质会到 1e60000 级，远超 IEEE754 double 上限（1.7977e308），游戏源码用 break_infinity.js。
+      我没有引入任意精度十进制，而是<b>把所有量表示成 log10 的单个 double</b>：乘法=加、除法=减、幂=乘、加法用 log-sum-exp。
+      实现在 <code>js/logmath.js</code>（约 100 行），精度 1e-9 级，支持 1e30000 级数值。
+      再把源码公式逐条搬进 <code>js/stagesim.js</code>，以 dt 为步长逐 tick 推进。</p>
+    <div class="ok-note">另一条独立路径：S1 段（打破无限之前，AM 不超上限）直接用第一阶段的 double 模型
+      <code>js/model.js</code> + <code>js/s1sim.js</code> 跑，误差与第一阶段同量级。两条路径互不依赖。</div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>验证通过的部分（逐项）</h2>
+    <div id="simVerified"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>拟合对拍：与参考站存档逐步对时间</h2>
+    <div id="simFit"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>完整流程仿真进展</h2>
+    <div id="simFull"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>只有跑起来才暴露的 bug</h2>
+    <div id="simBugs"></div>
+  </div>
+</main>
+<footer class="glass">
+  <span>源码：IvarK/AntimatterDimensionsSourceCode　·　仿真：js/logmath.js + js/stagesim.js　·　对拍脚本：tools/fit_report.js</span>
+  <span>Stage 2 · ③ 仿真</span>
+</footer>
+<script src="js/nav.js"></script>
+<script src="js/simresults.js"></script>
+<script src="js/stage2sim.js"></script>
+</body>
+</html>

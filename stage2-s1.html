@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>② S1 · 1 IP → 通关 C9 | AD 速通优化器</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="bg-orbs"><i></i><i></i><i></i></div>
+<header class="topbar glass">
+  <div class="brand">
+    <span class="logo">S1</span>
+    <div>
+      <h1>S1 段 · 1 IP → 通关 C9</h1>
+      <p>官方速通里程碑 #4 Tickspeed Challenge　·　分步操作 + 逐笔购买 + 可现场仿真</p>
+    </div>
+  </div>
+</header>
+<main>
+  <nav class="subnav glass" id="subnav"></nav>
+
+  <div class="card glass wide">
+    <h2>这一段在干什么（一句话）</h2>
+    <p class="hint">你手上有 <b>1 IP</b>，目标是<b>通关 C9</b>。中间没有任何"捷径"：<b>每一次大坍缩只给 1 × IP倍率 的 IP</b>
+      （因为封顶时 IP = floor(1.7817)），所以整段就是一个循环 —— <b>刷无限拿 IP → 买无限升级 → 单次无限变快 → 更快地拿 IP</b>。
+      核心指标只有一个：<b>单次无限耗时</b>。它每掉一档，刷 IP 速率就上一个数量级。</p>
+    <div class="ok-note" style="margin-top:12px">
+      <b>最重要的隐藏门槛（源码级）</b>：「IP 翻倍」和「离线 IP」两个升级的解锁条件是
+      <code>Achievement(41) = 买满 16 个无限升级</code>。也就是说 —— <b>在买满 16 个无限升级之前，你每次无限都只能拿到 1 IP</b>；
+      买满之后，10 IP → ×2、100 → ×4、1e3 → ×8、1e4 → ×16，收益才开始指数增长。
+      这解释了攻略为什么先咬牙买 20/40/80/300 IP 的四个 skipReset，而不是先买那个只要 10 IP 的翻倍。
+    </div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>分步操作表（33 步 · 每步给出"买什么"）</h2>
+    <div id="s1steps"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>单次无限耗时阶梯：逐 tick 仿真 vs 攻略实测</h2>
+    <p class="hint">左边两列是本工具<b>逐 tick 算出来的</b>（同一套源码公式，只是购买节奏不同：
+      dt=1/30 秒 = 游戏默认 33ms 帧间隔，dt=1/60 秒 = 60fps）。最右是攻略作者肉眼计的实测值。
+      <b>攻略的数值恰好夹在两种帧率之间</b> —— 这不是巧合，因为"按住最大"能触发的购买级联次数直接由帧率决定。</p>
+    <div id="s1ladder"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>★ 现场跑仿真：看"这一次无限里到底买了什么"</h2>
+    <p class="hint">下面这一块是<b>真的在跑逐 tick 仿真</b>（js/model.js + js/s1sim.js 直接加载进页面）。
+      选一个配置、选一个步长，点按钮，就能看到这一次无限从开局到 1.797e308 AM 的<b>每一笔购买</b>：
+      第几秒买了第几个维度、第几次维度提升、第几个星系、第几次献祭。<b>这就是"精确到每一步买什么"。</b></p>
+    <div id="s1live"></div>
+    <p class="hint" style="margin-top:14px">说明：日志里"首次买入第 k 维度（买 n 个）"表示这一帧内买满可负担的数量（等价于按住「最大」）；
+      "第 k 次维度提升"给出当时的 AM 与需求；C9/C8 需要手动逐档买，页面里的策略是"从高维往低维买满"。</p>
+  </div>
+
+  <div class="card glass wide">
+    <h2>无限升级清单（真实 4×4 网格，成本来自源码）</h2>
+    <p class="hint">编号约定 <code>IU&lt;行&gt;&lt;列&gt;</code>，与攻略正文的「第 x 行第 y 列」完全一致。
+      源码注释写明：<b>同一列内必须自上而下购买</b>。</p>
+    <div id="s1iu"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>全流程时间线（仿真的前 5 次无限 + 之后的推算）</h2>
+    <div id="s1timeline"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>未解问题（先说清楚哪些我没做出来）</h2>
+    <div id="s1open"></div>
+  </div>
+</main>
+<footer class="glass">
+  <span>步骤顺序与实测时间：《反物质维度安卓通关攻略》第二章　·　成本与机制：IvarK/AntimatterDimensionsSourceCode　·　仿真：js/s1sim.js</span>
+  <span>Stage 2 · ② S1</span>
+</footer>
+<script src="js/nav.js"></script>
+<script src="js/s1data.js"></script>
+<script src="js/model.js"></script>
+<script src="js/s1sim.js"></script>
+<script src="js/s1render.js"></script>
+</body>
+</html>
