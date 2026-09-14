@@ -112,6 +112,18 @@
   </div>
 
   <div class="card glass wide">
+    <h2>逐 tick 仿真（只用公式，不抄攻略时间）</h2>
+    <p class="hint">上面那张表的时间是从攻略实测速率推算的。<b>这一节是另一条完全独立的路径</b>：
+      把源码里的公式逐条搬进浏览器，所有量用 <b>log10 表示</b>（绕开 IEEE754 double 的 1.8e308 上限），
+      然后以 dt=0.02~0.2 秒为步长逐 tick 推进，自己跑出里程碑时刻。
+      代码见 <code>js/logmath.js</code> + <code>js/stagesim.js</code>，实跑结果见 <code>js/simresults.js</code>。</p>
+    <div id="simVerified"></div>
+    <div id="simFit"></div>
+    <div id="simFull"></div>
+    <div id="simBugs"></div>
+  </div>
+
+  <div class="card glass wide">
     <h2>诚实的边界说明</h2>
     <div class="warn" id="limitsBox"></div>
   </div>
@@ -123,6 +135,8 @@
 </footer>
 
 <script src="js/stage2data.js"></script>
+<script src="js/simresults.js"></script>
 <script src="js/stage2.js"></script>
+<script src="js/stage2sim.js"></script>
 </body>
 </html>
