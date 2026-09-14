@@ -112,6 +112,33 @@
   </div>
 
   <div class="card glass wide">
+    <h2>S1 段：1 IP → 通关 C9 · 分步操作表</h2>
+    <p class="hint">这是第二阶段的<b>第一段</b>，也是整个第二阶段唯一的"上坡段"。
+      目标里程碑：官方速通里程碑 <b>#4 Tickspeed Challenge</b>（通关 C9）。
+      下面每一步都给出：<b>做什么</b> + <b>为什么这么做</b>。
+      步骤顺序取自攻略第二章，成本与挑战机制逐条对齐源码（精确），
+      单次无限耗时取自攻略实测阶梯（该阶梯是玩家实跑数据，不是推算）。</p>
+    <div id="c9steps"></div>
+    <h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">参考：单次无限耗时实测阶梯</h3>
+    <p class="hint">这一段的核心指标只有一个 —— <b>单次无限耗时</b>。它每降一档，刷 IP 速率就上一个数量级。</p>
+    <div id="c9ladder"></div>
+    <h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">无限升级清单（成本来自源码）</h3>
+    <div id="c9iu"></div>
+    <h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">普通挑战一览（目标全部是"限制下再次达到 1.797e308 AM"）</h3>
+    <div id="c9nc"></div>
+    <div class="warn" style="margin-top:16px">
+      <b>关于这一段的定量仿真 —— 我没做出来，如实说明：</b><br>
+      这一段全部发生在打破无限之前，反物质不超 1.797e308，所以本该可以直接复用第一阶段那套已验证的模型
+      （误差 ~2%）。我为此写了 <code>js/c9plan.js</code>，把 12 个普通挑战的修正条件全部搬了进去
+      （C2 产量 3 分钟恢复、C3 第 1 维度指数倍率、C4 清空低维、C5 基准 1.080、C6 专用价格表、
+      C7 买十倍率、C8 无提升倍率+强献祭、C9 同价涨价、C10 六个维度、C11 普通物质、C12 产出低 2 档）。
+      但<b>没有跑出可信的时间</b>：一是单次无限本身就要数小时，我最初把上限设成 60 分钟是错的；
+      二是这一段的时间由"无限次数 × 每次无限耗时"决定，而每次无限耗时又随无限升级滚动变化，
+      需要把无限升级的联动完整接进 tick 循环才准。<b>结论：操作顺序是可靠的，时间是攻略实测值，不是我算出来的。</b>
+    </div>
+  </div>
+
+  <div class="card glass wide">
     <h2>逐 tick 仿真（只用公式，不抄攻略时间）</h2>
     <p class="hint">上面那张表的时间是从攻略实测速率推算的。<b>这一节是另一条完全独立的路径</b>：
       把源码里的公式逐条搬进浏览器，所有量用 <b>log10 表示</b>（绕开 IEEE754 double 的 1.8e308 上限），
@@ -136,7 +163,9 @@
 
 <script src="js/stage2data.js"></script>
 <script src="js/simresults.js"></script>
+<script src="js/c9steps.js"></script>
 <script src="js/stage2.js"></script>
 <script src="js/stage2sim.js"></script>
+<script src="js/c9steps-render.js"></script>
 </body>
 </html>
