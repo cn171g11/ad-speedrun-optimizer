@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>反物质维度 · 速通优化器 | AD Speedrun Optimizer</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="bg-orbs"><i></i><i></i><i></i></div>
+
+<header class="topbar glass">
+  <div class="brand">
+    <span class="logo">AD</span>
+    <div>
+      <h1>反物质维度 · 速通优化器</h1>
+      <p>Antimatter Dimensions Speedrun Optimizer — 首次大坍缩（无限）前的分步操作表</p>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="run">速通操作表</button>
+    <button class="tab" data-tab="live">实时指引</button>
+    <button class="tab" data-tab="route">排程分析</button>
+    <button class="tab" data-tab="algo">公式与算法</button>
+    <button class="tab" data-tab="verify">模型校验</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ======================= 速通操作表（主功能） ======================= -->
+  <section class="panel-tab active" id="tab-run">
+    <div class="card glass wide">
+      <div class="runhead">
+        <div class="seg" id="rt_platform" data-group="platform">
+          <button class="seg-btn active" data-val="pc">PC / Steam（tick 33ms）</button>
+          <button class="seg-btn" data-val="mobile">安卓（tick 25ms + 广告维度×2）</button>
+        </div>
+        <div class="runbtns">
+          <button class="ghost" id="rt_prev">◀ 上一阶段</button>
+          <button class="ghost" id="rt_next">下一阶段 ▶</button>
+          <button class="ghost" id="rt_trace">开始追踪（按空格推进）</button>
+          <button class="ghost" id="rt_copy">复制本阶段操作表</button>
+        </div>
+      </div>
+      <div id="rt_kpis" class="summary"></div>
+      <div id="rt_now" class="nowbox"></div>
+    </div>
+
+    <div class="grid">
+      <div class="card glass">
+        <h2>阶段列表</h2>
+        <div class="scroll tall" id="rt_stageTableWrap"><table id="rt_stageTable"></table></div>
+      </div>
+      <div class="card glass">
+        <h2 id="rt_stageTitle"></h2>
+        <p class="stagetarget" id="rt_stageGoal"></p>
+        <div class="scroll tall" id="rt_actTableWrap"><table id="rt_actTable"></table></div>
+      </div>
+    </div>
+
+    <div class="card glass wide">
+      <h2>全局时间线（横轴 = 用时占比）</h2>
+      <div id="rt_timeline" class="timeline empty">—</div>
+    </div>
+  </section>
+
+  <!-- ======================= 实时指引 ======================= -->
+  <section class="panel-tab" id="tab-live">
+    <div class="grid">
+      <div class="card glass">
+        <h2>当前游戏状态</h2>
+        <div class="field">
+          <label>所在阶段</label>
+          <div class="row">
+            <div><label class="sub">已买星系</label><input type="number" id="liveG" value="0" min="0" max="6" /></div>
+            <div><label class="sub">已买维度提升</label><input type="number" id="liveB" value="1" min="0" max="24" /></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>阶段进度</label>
+          <div class="seg" data-group="startMode">
+            <button class="seg-btn active" data-val="fresh">阶段刚开始（推荐）</button>
+            <button class="seg-btn" data-val="custom">填入当前实际数值</button>
+          </div>
+        </div>
+        <div id="customState" class="hidden">
+          <div class="field row">
+            <div><label class="sub">反物质 AM</label><input type="text" id="liveAM" value="1e100" /></div>
+            <div><label class="sub">已买计数频率</label><input type="number" id="liveT" value="0" min="0" /></div>
+          </div>
+          <div class="field"><label class="sub">各维度「已购买次数」（逗号分隔 1~8）</label>
+            <input type="text" id="liveBought" value="10,10,10,10,0,0,0,0" /></div>
+          <div class="field"><label class="sub">各维度「当前数量」（逗号分隔 1~8）</label>
+            <input type="text" id="liveDims" value="10,10,10,10,0,0,0,0" /></div>
+          <div class="field"><label class="sub">已累计献祭的第 1 维度总量</label>
+            <input type="text" id="liveSac" value="0" /></div>
+        </div>
+        <div class="field">
+          <label>本阶段目标</label>
+          <select id="liveGoal">
+            <option value="auto">自动（下一个维度提升）</option>
+            <option value="dimboost">下一个维度提升</option>
+            <option value="galaxy">买下一个星系</option>
+            <option value="infinity">直接冲无限（1.797e308 AM）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>搜索强度</label>
+          <div class="seg" data-group="liveEffort">
+            <button class="seg-btn" data-val="0">快速</button>
+            <button class="seg-btn active" data-val="1">标准</button>
+            <button class="seg-btn" data-val="2">深度</button>
+          </div>
+        </div>
+        <button class="primary" id="btnLive">计算后续最优操作</button>
+        <p class="hint">输出的时刻是「从当前时刻起」的相对时间。此功能使用本工具自带的求解器，
+          推导链路与「速通操作表」一致，但搜索强度低于参考站的分支搜索（后者是 C++ + GB 级内存），
+          因此结果一般略慢 2~8%。</p>
+      </div>
+
+      <div class="card glass">
+        <h2>后续操作序列</h2>
+        <div id="liveSummary" class="summary empty">填入状态后点击计算</div>
+        <div class="scroll tall" id="liveTableWrap"><table id="liveTable"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= 排程分析 ======================= -->
+  <section class="panel-tab" id="tab-route">
+    <div class="grid">
+      <div class="card glass">
+        <h2>独立求解参数</h2>
+        <div class="field">
+          <label>平台</label>
+          <div class="seg" data-group="platform">
+            <button class="seg-btn active" data-val="pc">PC / Steam</button>
+            <button class="seg-btn" data-val="mobile">安卓</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>求解强度</label>
+          <div class="seg" data-group="effort">
+            <button class="seg-btn active" data-val="-1">粗筛（快）</button>
+            <button class="seg-btn" data-val="0">快速</button>
+            <button class="seg-btn" data-val="1">标准</button>
+          </div>
+        </div>
+        <div class="field row">
+          <div><label>最大星系数</label><input type="number" id="maxG" value="3" min="1" max="6" /></div>
+          <div><label>最大提升数</label><input type="number" id="maxB" value="14" min="4" max="24" /></div>
+        </div>
+        <button class="primary" id="btnSolveRoute">用自有模型独立求解排程</button>
+        <div class="progress" id="routeProgress"><div class="bar"></div><span class="label">待机</span></div>
+        <p class="hint">这一栏用本工具逆向出的公式 + 局部搜索<strong>独立</strong>求解，用来交叉验证操作表所采用的排程
+          （哪一次维度提升后买星系）。它不参与生成操作表 —— 操作表用的是参考站公开的最优阶段序列。</p>
+      </div>
+
+      <div class="card glass">
+        <h2>自有模型求得的路线</h2>
+        <div id="routeSummary" class="summary empty">点击左侧按钮开始求解</div>
+        <div class="scroll" id="routeTableWrap"><table id="routeTable"></table></div>
+      </div>
+    </div>
+
+    <div class="card glass wide">
+      <h2>时间线</h2>
+      <div id="timeline" class="timeline empty">求解后显示各阶段耗时分布</div>
+    </div>
+  </section>
+
+  <!-- ======================= 公式与算法 ======================= -->
+  <section class="panel-tab" id="tab-algo">
+    <div class="card glass wide" id="algoContent"></div>
+  </section>
+
+  <!-- ======================= 模型校验 ======================= -->
+  <section class="panel-tab" id="tab-verify">
+    <div class="card glass wide">
+      <h2>模型校验</h2>
+      <p class="hint">把模型算出的数值与两类外部数据对拍：①《反物质维度安卓通关攻略》里玩家记录的真实游戏数值；
+        ②参考优化器 menelajjj/ad-dimboost-optimizer 的公开存档。</p>
+      <button class="primary" id="btnVerify">运行校验</button>
+      <div id="verifyOut"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="glass">
+  <span>公式逆向自 IvarK/AntimatterDimensionsSourceCode　·　最优阶段序列来自 menelajjj/ad-dimboost-optimizer 公开存档</span>
+  <span id="footStat"></span>
+</footer>
+
+<script src="js/model.js"></script>
+<script src="js/strategies.js"></script>
+<script src="js/solver.js"></script>
+<script src="js/verify.js"></script>
+<script src="js/refdata.js"></script>
+<script src="js/runplan.js"></script>
+<script src="js/app.js"></script>
+<script src="js/runtab.js"></script>
+</body>
+</html>

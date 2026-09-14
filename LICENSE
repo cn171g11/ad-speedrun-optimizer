@@ -1,0 +1,34 @@
+MIT License
+
+Copyright (c) 2026 cn171g11
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+第三方来源声明 (Third-party attributions)
+
+1. 游戏公式逆向自 IvarK/AntimatterDimensionsSourceCode（Antimatter Dimensions 官方开源仓库）。
+   Antimatter Dimensions 由 Hevipelle 创作。
+
+2. js/refdata.js 由 menelajjj/ad-dimboost-optimizer 的公开存档
+   (docs/Saved_Runs，MIT License) 解析生成，仅包含各阶段最优购买序列。
+   排程思路与对照基准亦来自该项目。
+
+3. 速通技巧与真实游戏实测数值来自中文攻略《反物质维度安卓通关攻略》等文档。
