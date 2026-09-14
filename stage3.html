@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ⅲ 永恒 → Cel7｜AD 速通优化器</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="bg-orbs"><i></i><i></i><i></i></div>
+<header class="topbar glass">
+  <div class="brand">
+    <span class="logo">Ⅲ</span>
+    <div>
+      <h1>永恒 → 第一次现实 → Cel1 → Cel7</h1>
+      <p>里程碑骨架 = 游戏内置 speedrun-milestones.js 的 #10~#25</p>
+    </div>
+  </div>
+</header>
+<main>
+  <nav class="subnav glass" id="subnav"></nav>
+
+  <div class="card glass wide">
+    <h2>先说清楚这一页是什么（以及不是什么）</h2>
+    <div class="ok-note">
+      <b>是</b>：官方 25 个速通里程碑的完整骨架（源码逐字提取）+ 把三个目标段切开 +
+      教程里可执行的节点（EP/TT 优先级、时间研究树序列、永恒挑战顺序、自动购买器设置…）。
+    </div>
+    <div class="warn" style="margin-top:12px">
+      <b>不是</b>：逐 tick 仿真。从「永恒」开始，游戏引入时间研究树、永恒挑战（12 个）、时间膨胀、
+      符文（Glyph）、以及七个天体各自的子系统 —— 机制数量比前两阶段多一个数量级。
+      前两阶段我能把公式全部对齐并逐 tick 跑；<b>这一阶段我只能给骨架 + 节点 + 可算的部分，给不出"最优解时间"</b>。
+      这是实话，不是偷懒。
+    </div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>官方速通里程碑全表（25 个）</h2>
+    <p class="hint">取自 <code>src/core/secret-formula/speedrun-milestones.js</code>，id 与 key 为源码原值。
+      本页三个目标段分别对应 #10~#16、#16~#19、#19~#25。</p>
+    <div id="s3ms"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>段① 永恒 → 第一次现实（#10 → #16）</h2>
+    <p class="hint">这一段的核心是"重置次数换成长"：<b>EP 换时间维度与永恒升级，TT 换时间研究树</b>。
+      下面每一条都来自教程原文，可直接照做。</p>
+    <div id="s3eternity"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>段② 现实 → Cel1（Teresa）（#16 → #19）</h2>
+    <div id="s3reality"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>段③ Cel1 → Cel7（Teresa → Effarig → Enslaved → V → Ra → Lai'tela → Pelle）（#19 → #25）</h2>
+    <div id="s3cel"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>C8 为什么"更快"—— 本轮的复现尝试与结论</h2>
+    <div id="s3c8"></div>
+  </div>
+</main>
+<footer class="glass">
+  <span>里程碑：游戏内置 speedrun-milestones.js　·　教程：《新人必看攻略·首次现实前》《现实更新攻略·第六版》《Cel-7 永恒部分全解》</span>
+  <span>Stage 3</span>
+</footer>
+<script src="js/nav.js"></script>
+<script src="js/s3data.js"></script>
+<script src="js/s3render.js"></script>
+</body>
+</html>
