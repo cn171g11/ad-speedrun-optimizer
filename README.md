@@ -3,7 +3,16 @@
 针对游戏 **《反物质维度》(Antimatter Dimensions)** 的速通工具。
 目标：以最快速度完成**首次大坍缩（无限，Big Crunch）**，并给出**每一步该买什么**。
 
-打开 `index.html` 即可使用（纯静态、无依赖、无需联网）。
+## 🔗 在线使用
+
+**<https://cn171g11.github.io/ad-speedrun-optimizer/>**
+
+无需安装任何东西，浏览器直接打开即可。也可克隆仓库后打开 `index.html`（纯静态、零依赖、完全离线可用）。
+
+[![在线站点](https://img.shields.io/badge/GitHub%20Pages-在线使用-58a6ff)](https://cn171g11.github.io/ad-speedrun-optimizer/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+![界面预览](screenshots/01-run-tab.png)
 
 ---
 
