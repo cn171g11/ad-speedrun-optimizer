@@ -304,10 +304,84 @@
     });
   }
 
+  // ── 手动路线（1 IP 之后头几次大坍缩：还没有自动化）──────────────────────
+  var KIND_LABEL = {
+    start: ['开局', 'tag boost'], dim: ['维度', 'tag tick'], dim10: ['买满10', 'tag galaxy'],
+    tick: ['计数频率', 'tag tick'], boost: ['维度提升', 'tag boost'],
+    galaxy: ['星系', 'tag galaxy'], sac: ['献祭', 'tag sac'], crunch: ['大坍缩', 'tag inf']
+  };
+  var manSel = 0;
+
+  function renderManual() {
+    var el = $('s1manual'); if (!el) return;
+    var runs = D.MANUAL_RUNS || [];
+    var h = [];
+
+    // 机制表
+    h.push('<div class="scroll"><table><thead><tr><th style="width:150px">项目</th>' +
+      '<th>内容</th><th style="width:210px">源码位置</th></tr></thead><tbody>');
+    (D.MANUAL_MECH || []).forEach(function (r) {
+      h.push('<tr><td><b>' + r[0] + '</b></td><td style="font-size:12px;line-height:1.7">' + r[1] + '</td>' +
+        '<td style="color:var(--txt-mute);font-size:11px">' + r[2] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    // 阶段表（同第一阶段格式）
+    var cum = 0;
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">阶段表（手动最优解）</h3>');
+    h.push('<div class="ok-note">三次手动合计 <b>' + fmtT(D.MANUAL_TOTAL) + '</b>' +
+      '（第 2 次 ' + fmtT(runs[0].time) + ' + 第 3 次 ' + fmtT(runs[1].time) +
+      ' + 第 4 次 ' + fmtT(runs[2].time) + '）</div>');
+    h.push('<div class="scroll" style="margin-top:10px"><table><thead><tr>' +
+      '<th>#</th><th>阶段</th><th>已购无限升级</th><th>最优排程</th><th>耗时</th><th>起止</th>' +
+      '</tr></thead><tbody>');
+    runs.forEach(function (r, i) {
+      var st = cum; cum += r.time;
+      h.push('<tr><td class="dim">' + (i + 1) + '</td><td>' + r.label + '</td>' +
+        '<td style="color:#9dcaff;font-size:11.5px">' + r.iu + '</td>' +
+        '<td class="dim" style="font-size:11.5px">' + r.plan + '</td>' +
+        '<td><b>' + fmtT(r.time) + '</b></td>' +
+        '<td class="dim">' + fmtT(st) + ' → ' + fmtT(cum) + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    // 动作明细
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">动作明细（点上面选一次，这里是"什么时机点什么"）</h3>');
+    h.push('<div class="seg" style="margin-bottom:10px">' + runs.map(function (r, i) {
+      return '<button class="seg-btn' + (i === manSel ? ' active' : '') + '" data-mrun="' + i + '">' +
+        r.label + '（' + r.actions.length + ' 个动作）</button>';
+    }).join('') + '</div>');
+    var R = runs[manSel];
+    if (R) {
+      h.push('<p class="hint">' + R.label + '　·　' + R.plan + '　·　用时 <b>' + fmtT(R.time) +
+        '</b>　·　维度提升 ' + R.boosts + ' 次 / 星系 ' + R.galaxies + ' 个 / 献祭 ' + R.sac + ' 次</p>');
+      h.push('<div class="scroll tall"><table><thead><tr><th>#</th><th>时刻</th><th>距上次</th>' +
+        '<th>操作</th><th>说明</th></tr></thead><tbody>');
+      var prev = 0;
+      R.actions.forEach(function (a, i) {
+        var kl = KIND_LABEL[a[3]] || ['', ''];
+        var gap = a[0] - prev; prev = a[0];
+        h.push('<tr><td class="dim">' + (i + 1) + '</td>' +
+          '<td><b>' + fmtT(a[0]) + '</b></td>' +
+          '<td class="dim">' + (i === 0 ? '—' : fmtT(gap)) + '</td>' +
+          '<td><span class="' + kl[1] + '">' + kl[0] + '</span> ' + a[1] + '</td>' +
+          '<td class="dim" style="font-size:11.5px">' + a[2] + '</td></tr>');
+      });
+      h.push('</tbody></table></div>');
+    }
+    el.innerHTML = h.join('');
+    Array.prototype.forEach.call(el.querySelectorAll('[data-mrun]'), function (b) {
+      b.addEventListener('click', function () {
+        manSel = parseInt(b.getAttribute('data-mrun'), 10);
+        renderManual();
+      });
+    });
+  }
+
   function boot() {
     renderSteps(); renderIU(); renderLadder(); renderTimeline();
     renderConst(); renderOpen(); renderLive();
-    renderTiming(); renderTimingLive();
+    renderTiming(); renderTimingLive(); renderManual();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
