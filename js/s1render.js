@@ -378,10 +378,76 @@
     });
   }
 
+  // ── 逐 tick 分析与机制修正（对照 4 份教程交叉比对）──────────────────────
+  function renderTick() {
+    var el = $('s1tick'); if (!el) return;
+    var h = [];
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:6px 0 8px">三处修正（教程交叉比对后改掉的）</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th style="width:120px">项目</th>' +
+      '<th style="width:150px">我原来的做法</th><th>改正为</th><th style="width:230px">影响</th></tr></thead><tbody>');
+    (D.TICK_FIX || []).forEach(function (r) {
+      h.push('<tr><td><b>' + r[0] + '</b></td><td style="color:#ff9d9d">' + r[1] + '</td>' +
+        '<td>' + r[2] + '</td><td class="dim" style="font-size:11.5px">' + r[3] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">50ms 内部 tick 基准（真实）vs 33ms / 17ms</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>阶段</th><th>dt=50ms（真实）</th>' +
+      '<th>dt=33ms</th><th>dt=17ms</th></tr></thead><tbody>');
+    (D.TICK_BASE || []).forEach(function (r) {
+      h.push('<tr><td>' + r.name + '</td><td><b>' + fmtT(r.t50) + '</b></td>' +
+        '<td>' + fmtT(r.t33) + '</td><td>' + fmtT(r.t17) + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">C8 修正结果（提升上限 5 + 献祭阈值扫描）</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>状态</th><th>普通无限</th>' +
+      '<th>C8 献祭阈值</th><th>C8 用时</th><th>献祭次数</th><th>结束献祭倍率</th></tr></thead><tbody>');
+    (D.C8_FIX || []).forEach(function (g) {
+      g.rows.forEach(function (r, i) {
+        h.push('<tr>' + (i === 0 ? '<td rowspan="' + g.rows.length + '"><b>' + g.st +
+          '</b><br><span class="dim" style="font-size:11.5px">普通无限 ' + fmtT(g.normal) + '</span></td>' : '') +
+          '<td>' + (i === 0 ? fmtT(g.normal) : '') + '</td>' +
+          '<td>nb ≥ ' + r[0] + '</td><td><b>' + fmtT(r[1]) + '</b></td>' +
+          '<td>' + r[2] + '</td><td style="color:var(--gold)">' + r[3] + '</td></tr>');
+      });
+    });
+    h.push('</tbody></table></div>');
+    h.push('<div class="warn" style="margin-top:10px"><b>结论（诚实版）：</b>' +
+      '修正后 C8 <b>可以打通了</b>（提升上限 5、献祭阈值 ≥8），而且结束时的献祭总倍率落在 <b>1.2e40</b>，' +
+      '与攻略「献祭倍数到约 1e40 时停手」完全吻合 —— 机制完全对上了。' +
+      '但在我的仿真里 C8 仍然比普通无限慢约 3~4 倍（43.7 分 vs 12.7 分）。' +
+      '所以「挑战 8 比正常无限快」这句攻略断言，我<b>能把机制全部对齐，但仍无法复现「更快」</b>。' +
+      '剩下的可能差异：攻略语境是"第一次无限之后"（那时普通无限要 7 小时），以及攻略靠<b>自动重试挑战</b>连续刷的吞吐量而非单跑时长。</div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">逐 tick 轨迹（第 4 次大坍缩，每 30 秒采样）</h3>');
+    h.push('<p class="hint">看到"d1/d4/d8 归零、AM 掉回 5e5"就是一次献祭或维度提升；' +
+      '倍率与产量每 30 秒跨好几个数量级，这就是"按住 Max"的级联效果。</p>');
+    h.push('<div class="scroll tall"><table><thead><tr><th>t (秒)</th><th>AM</th><th>d1</th>' +
+      '<th>d4</th><th>d8</th><th>计数频率</th><th>提升</th><th>星系</th><th>d1 倍率</th><th>d1 产量/s</th>' +
+      '</tr></thead><tbody>');
+    (D.TRACE || []).forEach(function (r) {
+      h.push('<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] +
+        '</td><td>' + r[4] + '</td><td>' + r[5] + '</td><td>' + r[6] + '</td><td>' + r[7] +
+        '</td><td>' + r[8] + '</td><td>' + r[9] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">教程交叉比对：之前遗漏的条目（已补进操作表）</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th style="width:250px">条目</th><th>内容</th>' +
+      '<th style="width:130px">出处</th></tr></thead><tbody>');
+    (D.TUT_MISSED || []).forEach(function (r) {
+      h.push('<tr><td><b>' + r[0] + '</b></td><td style="font-size:12px;line-height:1.7">' + r[1] + '</td>' +
+        '<td class="dim" style="font-size:11.5px">' + r[2] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    el.innerHTML = h.join('');
+  }
+
   function boot() {
     renderSteps(); renderIU(); renderLadder(); renderTimeline();
     renderConst(); renderOpen(); renderLive();
-    renderTiming(); renderTimingLive(); renderManual();
+    renderTiming(); renderTimingLive(); renderManual(); renderTick();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

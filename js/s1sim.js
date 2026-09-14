@@ -196,8 +196,11 @@
         while (tc < 3000) { if (!AD.buyTick(st, 1)) break; tc++; }
       }
       // 3) 维度提升（自动维度提升购买器）
+      //    ★ C8 里维度提升倍率 = 1（源码 DimBoost.power 在 C8 直接 return 1），
+      //    第 4 次之后提升只清空维度链、不给任何收益 → 必须停手（攻略："买满 4 次提升就买不动了"）
+      var capB = (st.challenge === 8) ? 5 : (cfg.boostCap === undefined ? 1e9 : cfg.boostCap);
       var bg = 0;
-      while (bg++ < 60) {
+      while (bg++ < 60 && st.boosts < capB) {
         var r = S1.reqOf(st, 'boost');
         if (st.dims[r.tier] < r.amount - 1e-9) break;
         var before = st.boosts;
@@ -237,9 +240,10 @@
         // 否则维度链每几秒就被清空一次，永远堆不到 1.797e308（本仿真已复现这个死循环）
         var cd = cfg.sacCooldown === undefined ? 2 : cfg.sacCooldown;
         var stopAt = cfg.sacStopAt === undefined ? (st.challenge === 8 ? 1e40 : Infinity) : cfg.sacStopAt;
+        var th = cfg.sacRatio === undefined ? 3 : cfg.sacRatio;
         var wantSac = (st.challenge === 8)
-          ? (nb >= 1.3 && st.time - lastSac >= cd && S1.totalBoostOf(st) < stopAt)
-          : (nb >= 3 && st.time - lastSac >= 60);
+          ? (nb >= th && st.time - lastSac >= cd && S1.totalBoostOf(st) < stopAt)
+          : (nb >= th && st.time - lastSac >= 60);
         if (wantSac) {
           AD.doSacrifice(st);
           sacAt.push(st.time);
