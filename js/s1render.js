@@ -43,6 +43,43 @@
     el.innerHTML = h.join('');
   }
 
+  // ── 完整操作表（压缩后 · 同第一阶段格式）──────────────────────────────
+  function renderFlow() {
+    var el = $('s1flow'); if (!el) return;
+    var F = global.S1FLOW; if (!F) return;
+    var h = [];
+    var phName = { A: '#58a6ff', B: '#ffd700', C: '#9dcaff', D: '#7ee787', E: '#ff9b9b' };
+    // KPI
+    h.push('<div class="kpis">' +
+      '<div class="kpi"><div class="k">压缩后总用时（Web 30fps）</div><div class="v">' + fmtT(F.compressed.pc30) + '</div><div class="s">90fps 极限 ' + fmtT(F.compressed.pc90) + '</div></div>' +
+      '<div class="kpi"><div class="k">压缩后总用时（安卓 30fps）</div><div class="v">' + fmtT(F.compressed.and30) + '</div><div class="s">90fps 极限 ' + fmtT(F.compressed.and90) + '</div></div>' +
+      '<div class="kpi"><div class="k">跑数</div><div class="v">' + F.runs + '</div><div class="s">瓶颈 = 32767 IP 固定成本</div></div>' +
+      '<div class="kpi"><div class="k">满提升基线（逐笔）</div><div class="v">' + fmtT(F.baselineTotal) + '</div><div class="s">每跑耗时 × 跑数（Web 30fps）</div></div>' +
+      '</div>');
+    // 阶段分组表
+    F.phases.forEach(function (p) {
+      var rows = F.steps.filter(function (s) { return s.ph === p.id; });
+      h.push('<h3 style="font-size:13px;color:' + phName[p.id] + ';margin:20px 0 8px;' +
+        'border-left:3px solid ' + phName[p.id] + ';padding-left:9px">阶段 ' + p.id + ' · ' + p.name +
+        ' <span style="color:var(--txt-dim);font-weight:400">' + p.desc + '</span></h3>');
+      h.push('<div class="scroll"><table><thead><tr>' +
+        '<th style="width:30px">#</th><th style="width:26%">操作流程</th><th style="width:26%">购买项目</th>' +
+        '<th style="width:14%">数量</th><th style="width:12%">等待的时间</th><th style="width:12%">总计的时间</th>' +
+        '</tr></thead><tbody>');
+      rows.forEach(function (s) {
+        h.push('<tr><td style="color:var(--txt-dim)">' + (F.steps.indexOf(s) + 1) + '</td>' +
+          '<td>' + s.act + (s.mark ? ' <b style="color:var(--gold)">' + s.mark + '</b>' : '') + '</td>' +
+          '<td style="color:#9dcaff">' + s.item + '</td>' +
+          '<td>' + s.qty + '</td>' +
+          '<td style="color:var(--gold)">' + fmtT(s.wait) + '</td>' +
+          '<td><b>' + fmtT(s.cum) + '</b></td></tr>');
+      });
+      h.push('</tbody></table></div>');
+    });
+    h.push('<div class="warn" style="margin-top:12px">' + F.note + '</div>');
+    el.innerHTML = h.join('');
+  }
+
   // ── 无限升级网格 ─────────────────────────────────────────────────────
   function renderIU() {
     var el = $('s1iu'); if (!el) return;
@@ -682,7 +719,7 @@
   }
 
   function boot() {
-    renderSteps(); renderIU(); renderLadder(); renderTimeline(); renderPhaseA(); renderOpt(); renderLever(); renderFullChain();
+    renderSteps(); renderFlow(); renderIU(); renderLadder(); renderTimeline(); renderPhaseA(); renderOpt(); renderLever(); renderFullChain();
     renderConst(); renderOpen(); renderLive();
     renderTiming(); renderTimingLive(); renderManual(); renderTick(); renderAch();
   }

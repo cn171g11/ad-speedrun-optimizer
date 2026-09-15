@@ -15,13 +15,14 @@
   var LS_KEY = 'adspeedrun_lang';
   var DICT = (typeof window !== 'undefined' && window.ZH_EN) || {};
 
-  // ── 数字模式规则（在字典之前执行，避免「第 N 维度 / 第 N 步」歧义）───────
-  // 每条 { re: RegExp(全局), fn: function(match, g1, g2...) -> string }
-  var RULES = [
+  // ── 数字模式规则 ────────────────────────────────────────────────────
+  // 阶段 1：具体「第 N <名词>」模式（必须先于字典，避免「维度」等被单独吃掉）
+  var STEP1 = [
     { re: /首次买入第\s*(\d+)\s*维度（(\d+)\s*个）/g,  fn: function (m, a, b) { return 'first buy dim ' + a + ' (' + b + ')'; } },
     { re: /需要\s*第\s*(\d+)\s*维\s*≥\s*(\S+)/g,       fn: function (m, a, b) { return 'need dim ' + a + ' \u2265 ' + b; } },
     { re: /第\s*(\d+)\s*维度自动购买器/g,               fn: function (m, a) { return 'dim ' + a + ' autobuyer'; } },
     { re: /奖励：第\s*(\d+)\s*维度自动购买器/g,          fn: function (m, a) { return 'reward: dim ' + a + ' autobuyer'; } },
+    { re: /第\s*(\d+)\s*维度买满\s*(\d+)\s*个/g,        fn: function (m, a, b) { return 'buy dim ' + a + ' up to ' + b; } },
     { re: /第\s*(\d+)\s*个维度/g,                       fn: function (m, a) { return 'dimension #' + a; } },
     { re: /第\s*(\d+)\s*维度/g,                         fn: function (m, a) { return 'dimension ' + a; } },
     { re: /第\s*(\d+)\s*次大坍缩/g,                     fn: function (m, a) { return 'big crunch #' + a; } },
@@ -32,12 +33,31 @@
     { re: /第\s*(\d+)\s*步/g,                           fn: function (m, a) { return 'step ' + a; } },
     { re: /通关\s*C\s*(\d+)/g,                          fn: function (m, a) { return 'clear C' + a; } },
     { re: /第\s*(\d+)\s*行第\s*(\d+)\s*列/g,            fn: function (m, a, b) { return 'row ' + a + ' col ' + b; } },
+    { re: /第\s*(\d+)\s*行/g,                           fn: function (m, a) { return 'row ' + a; } },
+    { re: /第\s*(\d+)\s*列/g,                           fn: function (m, a) { return 'column ' + a; } },
+  ];
+  // 阶段 3：通用序数兜底（字典没覆盖的「第 N 次 / 第 N 个」）
+  function ordinal(n) {
+    var x = parseInt(n, 10);
+    if (x % 100 === 11 || x % 100 === 12 || x % 100 === 13) return x + 'th';
+    return x + ({ 1: 'st', 2: 'nd', 3: 'rd' }[x % 10] || 'th');
+  }
+  var STEP3 = [
+    { re: /第\s*(\d+)\s*次/g,  fn: function (m, a) { return ordinal(a); } },
+    { re: /第\s*(\d+)\s*个/g,  fn: function (m, a) { return '#' + a; } },
   ];
   var UNIT = { '分钟': 'min', '小时': 'h', '秒': 's' };
 
-  function applyRules(s) {
-    for (var i = 0; i < RULES.length; i++) {
-      var r = RULES[i];
+  function applyStep1(s) {
+    for (var i = 0; i < STEP1.length; i++) {
+      var r = STEP1[i];
+      if (r.re.test(s)) { s = s.replace(r.re, r.fn); }
+    }
+    return s;
+  }
+  function applyStep3(s) {
+    for (var i = 0; i < STEP3.length; i++) {
+      var r = STEP3[i];
       if (r.re.test(s)) { s = s.replace(r.re, r.fn); }
     }
     return s;
@@ -60,9 +80,8 @@
 
   function translateString(s) {
     if (!s || !/[\u4e00-\u9fa5]/.test(s)) return s;
-    // 先字典（最长匹配，保留完整短语），再规则（补数字模式）
-    var a = applyDict(s);
-    return applyRules(a);
+    // 阶段1(具体第N<名词>) → 字典(最长匹配) → 阶段3(通用序数兜底)
+    return applyStep3(applyDict(applyStep1(s)));
   }
 
   // ── DOM 遍历 ────────────────────────────────────────────────────────
