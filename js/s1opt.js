@@ -123,9 +123,18 @@
   //  杠杆 A：高配状态下"少买维度提升" —— 提升会清空维度链，而 skipReset 已给了 4 次保底
   //  杠杆 B：更新率（dt）—— "按住 Max" 是按帧触发的，帧率越高级联越快
   var LEVER_BOOSTCAP = [
-    ['IU31 之前（0~5 个 IU）', '不要停', '此时提升是唯一的倍率来源，停提升反而慢 1.5~2 倍'],
-    ['IU31 之后（6 个 IU 起）', '<b>停在第 6 次</b>', '6 次提升刚好够开星系；再多买提升只是反复清空维度链'],
-    ['IU44 满配', '<b>停在第 6 次</b>：18.5 秒 → <b>5.9 秒（×3.14）</b>', '这就是攻略那句"买 IU44 之后不再需要维度提升"的定量版本']
+    ['0~5 个 IU', '不要停（boost∞）', '此时提升是唯一的倍率来源，停提升反而慢 1.5~2 倍'],
+    ['6 个 IU', '<b>停在第 7 次</b>', '细扫：4→49.6s / 5→41.1s / 6→38.7s / <b>7→37.8s</b> / 8→40.2s'],
+    ['8~14 个 IU', '<b>停在第 5 次</b>', '8 个时 25.0s、14 个时 11.4s（第 5 次都是最优）'],
+    ['16 个 IU 满配', '<b>停在第 4 次</b>：18.5s → <b>4.4s（×4.2）</b>', '满配下 4 次提升就够开星系，再买纯属自断维度链']
+  ];
+  var BOOSTCAP_SWEEP = [
+    { n: 6,  best: 7, times: '4→49.6 / 5→41.1 / 6→38.7 / 7→37.8 / 8→40.2' },
+    { n: 8,  best: 5, times: '4→28.1 / 5→25.0 / 6→25.7 / 7→27.3' },
+    { n: 10, best: 5, times: '4→17.7 / 5→16.8 / 6→17.8 / 7→19.5' },
+    { n: 12, best: 5, times: '4→14.9 / 5→14.1 / 6→14.8 / 7→16.3' },
+    { n: 14, best: 5, times: '4→12.2 / 5→11.4 / 6→12.1 / 7→13.6' },
+    { n: 16, best: 4, times: '4→4.4 / 5→5.0 / 6→5.9 / 不限→18.5' }
   ];
 
   var LEVER_DT = [
@@ -143,9 +152,10 @@
 
   // ── 最终结果（三轮杠杆叠加）────────────────────────────────────────────
   var FINAL = [
-    { name: '① 攻略顺序・30fps（基准）', pc: 17.21 * 3600, and: 10.12 * 3600 },
-    { name: '② ＋最优采购顺序・30fps', pc: 10.15 * 3600, and: 6.62 * 3600 },
-    { name: '③ ＋停提升＋高刷新率(90fps)', pc: 5.61 * 3600, and: 3.45 * 3600, best: true }
+    { name: '① 攻略原样（顺序 + 满提升 + 默认帧率）', pc: 17.21 * 3600, and: 10.12 * 3600 },
+    { name: '② ＋逐阶段停提升', pc: 8.08 * 3600, and: 6.14 * 3600 },
+    { name: '③ ＋最优采购顺序', pc: 6.79 * 3600, and: 4.74 * 3600 },
+    { name: '④ ＋高刷新率(90fps)', pc: 3.26 * 3600, and: 2.18 * 3600, best: true }
   ];
   var FINAL_RUNS = 4081;   // 恒定：瓶颈是 32767 IP
   var FINAL_NOTE = '跑数恒为 4081（88.4% 发生在 16 个 IU 齐了之后）—— 因为瓶颈是 32767 IP 这个固定成本，与策略无关。';
@@ -182,7 +192,7 @@
 
   global.S1OPT = { BEST_ORDER: BEST_ORDER, GUIDE_ORDER: GUIDE_ORDER, PREFIX: PREFIX,
     MARGINAL: MARGINAL, CHAL: CHAL, RESULT: RESULT, BREAKDOWN: BREAKDOWN, EXCLUDED: EXCLUDED,
-    BC_LADDER: 32767, LEVER_BOOSTCAP: LEVER_BOOSTCAP, LEVER_DT: LEVER_DT,
+    BC_LADDER: 32767, LEVER_BOOSTCAP: LEVER_BOOSTCAP, BOOSTCAP_SWEEP: BOOSTCAP_SWEEP, LEVER_DT: LEVER_DT,
     DT_FACTOR: DT_FACTOR, FINAL: FINAL, FINAL_RUNS: FINAL_RUNS, FINAL_NOTE: FINAL_NOTE,
     PREFIX2: PREFIX2, ACH_ROWS: ACH_ROWS };
 })(typeof window !== 'undefined' ? window : globalThis);

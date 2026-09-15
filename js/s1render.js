@@ -599,6 +599,15 @@
       '</tr></tbody></table></div>');
 
     h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">★ 最终结果：三轮杠杆叠加</h3>');
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">boostCap 细扫（第 5 次在哪里最优是逐阶段变的）</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>已购 IU</th><th>最优停在第几次</th>' +
+      '<th>各档耗时（秒，Web）</th></tr></thead><tbody>');
+    O.BOOSTCAP_SWEEP.forEach(function (r) {
+      h.push('<tr><td>' + r.n + '</td><td><b>' + r.best + '</b></td>' +
+        '<td class="dim" style="font-size:11px">' + r.times + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    
     h.push('<div class="scroll"><table><thead><tr><th>方案</th><th>Web/Steam</th><th>安卓</th>' +
       '<th>相对①</th></tr></thead><tbody>');
     var base = O.FINAL[0];
@@ -608,8 +617,8 @@
         '<td>' + (r.pc <= base.pc ? '省 ' + fmtT(base.pc - r.pc) : '—') + '</td></tr>');
     });
     h.push('</tbody></table></div>');
-    h.push('<div class="ok-note" style="margin-top:12px"><b>总压缩 3.07×（Web）/ 2.93×（安卓）</b>：' +
-      '17.21 小时 → <b>5.61 小时</b>；安卓 10.12 小时 → <b>3.45 小时</b>。<br>' + O.FINAL_NOTE + '</div>');
+    h.push('<div class="ok-note" style="margin-top:12px"><b>总压缩 5.28×（Web）/ 4.64×（安卓）</b>：' +
+      '17.21 小时 → <b>3.26 小时</b>；安卓 10.12 小时 → <b>2.18 小时</b>。<br>' + O.FINAL_NOTE + '</div>');
 
     h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">前缀表 v2（boostCap 取优后，单次无限耗时）</h3>');
     h.push('<div class="scroll"><table><thead><tr><th>#IU</th><th>新增</th><th>Web/Steam</th>' +

@@ -54,7 +54,7 @@
       <a class="navcard" href="./stage2-s1.html">
         <div class="t">Ⅱ-S1 · 1 IP → Break Infinity</div>
         <div class="d">The deep-dive. Bottleneck, marginal speed-ups, optimal purchase order.<br>
-          <b>17.21 h → 5.61 h (Web)</b> after 3 rounds of optimization (see below).</div></a>
+          <b>17.21 h → 3.26 h (Web)</b> after 3 rounds of optimization (see below).</div></a>
       <a class="navcard" href="./stage3.html">
         <div class="t">Ⅲ Eternity → Reality → Cel-1 → Cel-7</div>
         <div class="d">In-game milestones #10–#25 as the skeleton + guide thresholds
@@ -82,12 +82,12 @@
       <tbody>
         <tr><td>Guide order, 30 fps (baseline)</td><td><b>17.21 h</b></td><td><b>10.12 h</b></td></tr>
         <tr><td>+ optimal purchase order (fit marginal speed-ups)</td><td>10.15 h</td><td>6.62 h</td></tr>
-        <tr style="background:rgba(126,231,135,.12)"><td>+ stop dim-boosting at 6, 90 fps</td><td><b>5.61 h</b></td><td><b>3.45 h</b></td></tr>
+        <tr style="background:rgba(126,231,135,.12)"><td>+ stop dim-boosting at 6, 90 fps</td><td><b>3.26 h</b></td><td><b>2.18 h</b></td></tr>
       </tbody>
     </table></div>
     <p class="hint" style="font-size:12.5px;margin-top:12px">
-      <b>3.07× total compression (Web).</b> Key insights: (a) with skipReset, buying more than ~6
-      Dimension Boosts <i>slows you down</i> (18.5 s → 5.9 s per crunch — this independently
+      <b>5.28× total compression (Web).</b> Key insights: (a) with skipReset, buying more than ~6
+      Dimension Boosts <i>slows you down</i> (18.5 s → 4.4 s per crunch — this independently
       verifies the guide's "after IU44 you no longer need dimension boosts"); (b) "hold Max" fires
       per-frame, so the refresh rate caps short runs (only 5.9 s runs care; the 5-hour early runs
       barely move).
