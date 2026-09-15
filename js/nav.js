@@ -8,7 +8,8 @@
     { href: './stage2-s1.html',      label: 'Ⅱ-S1 操作表',     desc: '1 IP → C9：手动/自动/时机' },
     { href: './stage2-sim.html',     label: 'Ⅱ-仿真',          desc: '对数空间逐 tick' },
     { href: './stage2-formula.html', label: 'Ⅱ-公式',          desc: '常数与边界' },
-    { href: './stage3.html',         label: 'Ⅲ 永恒 → Cel7',   desc: '永恒/现实/天体 里程碑' }
+    { href: './stage3.html',         label: 'Ⅲ 永恒 → Cel7',   desc: '永恒/现实/天体 里程碑' },
+    { href: './platform.html',       label: '🔀 平台差异',      desc: 'Web/Steam vs 安卓' }
   ];
   function boot() {
     var host = document.getElementById('subnav');

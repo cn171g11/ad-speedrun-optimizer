@@ -123,11 +123,12 @@
   function runInfinity(cfg) {
     cfg = cfg || {};
     var st = AD.newState({
-      platform: 'pc', challenge: cfg.challenge || 0,
+      platform: cfg.platform || 'pc', challenge: cfg.challenge || 0,
       infinitiesTotal: cfg.infinities || 1,
       iu: iuFlags(cfg.iuSet || {}),
       ipMultLv: 0,
-      brk: !!cfg.brk
+      brk: !!cfg.brk,
+      adBonus: cfg.adBonus || 1
     });
     st.achs = cfg.achOverride ? cfg.achOverride : baseAchs(cfg.extraAchs);
     st.ip = cfg.ipStock !== undefined ? cfg.ipStock : (cfg.ip || 0);

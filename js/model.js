@@ -232,6 +232,7 @@
       maxSacNext: 1,            // 单次献祭最大倍率（成就 88）
       // ---- 无限维度（打破无限后才存在；默认关闭，不影响第一阶段与 S1）----
       brk: !!opts.brk,          // 是否已打破无限
+      adBonus: opts.adBonus || 1,   // 广告加成倍率（安卓专属）
       idAmt: [0,0,0,0,0,0,0,0,0], idBought: [0,0,0,0,0,0,0,0,0],
       infPower: 0, maxAMAll: opts.maxAMAll || 0,
       crunches: 0, ip: opts.ip || 0, ipMult: opts.ipMult || 1,
@@ -261,7 +262,7 @@
       hold1e80: s.hold1e80, maxDimMult: s.maxDimMult, ticksPerSecond: s.ticksPerSecond,
       challenge: s.challenge, chall2Pow: s.chall2Pow, chall3Pow: s.chall3Pow,
       chall8Sac: s.chall8Sac, normalMatter: s.normalMatter, maxSacNext: s.maxSacNext,
-      brk: s.brk, idAmt: s.idAmt.slice(), idBought: s.idBought.slice(),
+      brk: s.brk, adBonus: s.adBonus, idAmt: s.idAmt.slice(), idBought: s.idBought.slice(),
       infPower: s.infPower, maxAMAll: s.maxAMAll,
       crunches: s.crunches, ip: s.ip, ipMult: s.ipMult,
       costBumps: s.costBumps.slice(), chall9TickBumps: s.chall9TickBumps, tSinceBuy: s.tSinceBuy,
@@ -410,6 +411,10 @@
   function computeMults(s) {
     ensureCaches(s);
     var power = s.achPower, mobile = s.platform === 'mobile' ? 2 : 1;
+    // 安卓版两个独立加成：① 手游版维度 ×2（参考优化器 mobile_dim_multiplier=2，
+    //   已被 Mobile(Ad) 世界纪录验证）② 广告加成 = 全局速率 ×2（教程原文「在 e4000EP 以后，
+    //   由于广告加成使游戏全局速率×2」）。两者相乘 → 安卓满配 ≈ ×4 产能
+    var adB = s.adBonus || 1;
     var c = s.challenge || 0, iu = s.iu || {};
     // 无限升级的公共倍率
     var iuCommon = 1;
@@ -423,6 +428,7 @@
     }
     if (iu.buy10) iuCommon *= 1;                       // buy10 只影响买十倍率，见下
     iuCommon *= infPowerEffect(s);                     // 无限之力^7（仅打破无限后）
+    iuCommon *= adB;                                   // 广告加成（安卓专属，全局速率 ×2）
     // 买满 10 个的倍率（C7 会被压到 ×1，每次提升 +0.2）
     var buy10 = BUY_TEN_MULT;
     if (iu.buy10) buy10 *= 1.1;

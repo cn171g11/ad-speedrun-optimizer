@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>平台差异（Web/Steam vs 安卓）｜AD 速通优化器</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="bg-orbs"><i></i><i></i><i></i></div>
+<header class="topbar glass">
+  <div class="brand">
+    <span class="logo">P</span>
+    <div>
+      <h1>平台差异：Web / Steam vs 安卓</h1>
+      <p>以前所有数字默认是 PC；这一页把平台差异摊开，并把该改的数字改掉</p>
+    </div>
+  </div>
+</header>
+<main>
+  <nav class="subnav glass" id="subnav"></nav>
+
+  <div class="card glass wide">
+    <h2>为什么必须分开算</h2>
+    <div class="ok-note">
+      安卓版是<b>独立授权的移植版</b>，不是同一个构建：它有自己的加成（广告）、自己的 tick 频率、
+      自己的离线进度上限，而且 <b>Web/Steam 有自动机（Automator），安卓没有</b>。
+      speedrun.com 干脆把「广告加成」设成<b>类别定义级的变量</b>（Web / Mobile 无广告 / Mobile 有广告 / Mobile SR 四个并列分类）——
+      说明这个差异大到不能混在一起排名。
+    </div>
+    <div class="warn" style="margin-top:12px">
+      本站此前第一、二阶段的数字<b>都是 PC（Web/Steam）档</b>，没有区分平台。这一页就是修正：
+      差异表 + 两平台对照 + 三档 S1 阶梯 + 一个"到底叠几层加成"的仲裁。
+    </div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>平台差异总表（每条带出处）</h2>
+    <div id="pfDiff"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>第一阶段对照：到首次无限（数据源＝参考优化器的两套最优序列）</h2>
+    <div id="pfStage1"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>S1 阶梯三档对照（本工具逐 tick 重算）</h2>
+    <div id="pfS1"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>第二阶段（首次无限 → 首次永恒）的两平台估算</h2>
+    <div id="pfS2"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>仲裁：安卓到底叠几层加成？</h2>
+    <div id="pfArb"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>各阶段的平台敏感点</h2>
+    <div id="pfSens"></div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>离线进度对照（挂机阶段的真实杠杆）</h2>
+    <div id="pfOffline"></div>
+  </div>
+</main>
+<footer class="glass">
+  <span>证据：IvarK 源码（env.js 显示 Web 与 Steam 同构建、安卓不在本仓库）· 参考优化器 menelajjj/ad-dimboost-optimizer · 4 份中文教程 · speedrun.com v1 API</span>
+  <span>平台差异</span>
+</footer>
+<script src="js/nav.js"></script>
+<script src="js/platform.js"></script>
+<script src="js/platform-render.js"></script>
+</body>
+</html>
