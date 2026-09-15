@@ -1,3 +1,37 @@
+# AD Speedrun Optimizer (English)
+
+Reverse-engineers **Antimatter Dimensions** from its open source, simulates progression
+tick-by-tick, and outputs optimal purchase-by-purchase route plans. Every number is formula-derived
+(with source cited) or explicitly flagged as measured/estimated.
+
+**English overview:** https://cn171g11.github.io/ad-speedrun-optimizer/en.html
+**Chinese landing:** https://cn171g11.github.io/ad-speedrun-optimizer/index.html
+
+## Key results at a glance
+
+| Stage | Web/Steam | Android | Basis |
+|---|---|---|---|
+| I. First Dimboost → First Infinity | ~7.17 h | ~3.59 h | phase-graph DP; matches Web "Galaxy" WR to 0.2% |
+| II. First Infinity → First Eternity | ~12.9 h | ~7.3-8.5 h | segmented model |
+| II-S1 (1 IP → Break Infinity), guide order | 17.21 h | 10.12 h | tick sim |
+| II-S1, **4 rounds optimized** | **3.26 h** | **2.18 h** | order fit + stop-boosting + refresh rate |
+
+**S1 headline:** the bottleneck is unlocking Break Infinity = maxing the Big Crunch autobuyer
+interval (`BreakInfinityButton.isUnlocked = Autobuyer.bigCrunch.hasMaxedInterval`), which costs
+1+2+4+...+16384 = **32,767 IP**. Pre-break every crunch gives exactly 1 x IPmult, so the segment is
+a fixed 4,081-crunch grind. Four levers: (a) optimal purchase order (1-IP dim-multipliers like IU21/IU32
+give x9.6/x7.0 while skipReset only x1.05-1.08), (b) stop dimension-boosting early once you have
+skipReset (the stop point is stage-dependent: 7 at 6 IUs, 5 at 8-14 IUs, 4 at full — 18.5 s -> 4.4 s
+per crunch), (c) high refresh rate (4.4 s -> 1.6 s per crunch; only short runs care).
+
+**Validation:** Web "to first Galaxy" model 4h07m26s vs WR 4h07m58s (0.2%); Android x2-dim model
+2h03m43s vs Mobile(Ad) WR 2h14m24s (8%). The 21 speedrun.com levels after "Infinity" all have 0 runs.
+
+**Honest limits:** reality/celestials (stage III) are skeleton-only (no closed-form model); the Android
+"x2 dims" vs "ad bonus x2" conflict is documented rather than papered over.
+
+---
+
 # 反物质维度 · 速通优化器 (AD Speedrun Optimizer)
 
 针对游戏 **《反物质维度》(Antimatter Dimensions)** 的速通工具。
