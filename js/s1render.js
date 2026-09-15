@@ -488,8 +488,83 @@
     el.innerHTML = h.join('');
   }
 
+  // ── S1 压缩优化（本轮：真实瓶颈 + 拟合后的最优顺序）────────────────────
+  function renderOpt() {
+    var el = $('s1opt'); if (!el) return;
+    var O = global.S1OPT; if (!O) return;
+    var h = [];
+
+    h.push('<div class="ok-note"><b>本轮的三个源码级发现：</b><br>' +
+      '① <b>打破无限的解锁条件不是"买满 16 个无限升级"，而是把大坍缩自动购买器的间隔升满</b>：' +
+      '<code>BreakInfinityButton.isUnlocked = Autobuyer.bigCrunch.hasMaxedInterval</code>；' +
+      '而这个自动购买器来自 <b>C12 的奖励</b>（<code>canBeUpgraded = NormalChallenge(12).isCompleted</code>）。<br>' +
+      '② 间隔升级成本从 1 起每次 ×2、间隔每次 ×0.6（下限 100）⇒ 150000 → 100 需 15 次 = ' +
+      '<b>32767 IP</b> —— 攻略写的「3e4 IP 进入 C12」正是这个数。<br>' +
+      '③ 未打破无限时 <code>IP = floor(308 / div × totalIPMult)</code>，div 恒为 308 ⇒ <b>每次固定 1×IPmult</b>。</div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">结果对照：压缩了多少</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>方案</th><th>Web/Steam</th><th>安卓</th>' +
+      '<th>相对攻略</th></tr></thead><tbody>');
+    O.RESULT.forEach(function (r) {
+      var base = O.RESULT[0];
+      h.push('<tr' + (r.best ? ' style="background:rgba(126,231,135,.12)"' : '') + '>' +
+        '<td><b>' + r.name + '</b></td><td>' + fmtT(r.pc) + '</td><td>' + fmtT(r.and) + '</td>' +
+        '<td>' + (r.pc <= base.pc ? '省 ' + fmtT(base.pc - r.pc) : '慢 ' + fmtT(r.pc - base.pc)) + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    h.push('<p class="hint">注：这三个数<b>都比我上一轮给的 43.5 小时低得多</b> —— 因为上一轮我用的是稀疏打表，中间状态被当成"最慢那一档"了；' +
+      '这一轮把每个无限升级的边际提速逐个测出来再拟合，才是真实量级。</p>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">★ 压缩后的最优采购顺序（买得起就买）</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>#</th><th>升级</th><th>成本</th><th>效果</th>' +
+      '<th>边际提速（Web / 安卓）</th></tr></thead><tbody>');
+    var marg = {};
+    O.MARGINAL.forEach(function (m) { marg[m[0]] = m; });
+    O.BEST_ORDER.forEach(function (r, i) {
+      var m = marg[r[0]];
+      h.push('<tr><td>' + (i + 1) + '</td><td><b>' + r[0] + '</b></td><td>' + r[1] + ' IP</td>' +
+        '<td>' + r[2] + '</td>' +
+        '<td style="color:var(--gold)">' + (m ? '×' + m[2].toFixed(2) + ' / ×' + m[3].toFixed(2) : '—') + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    h.push('<div class="ok-note" style="margin-top:12px">★ 与攻略最大的差异：' +
+      '<b>攻略把 skipReset 三件（IU14/24/34，共 140 IP）排在第 12~14 位之前</b>，' +
+      '而按边际提速它们只有 ×1.05~1.08，却要吃 20/40/80 次无限。' +
+      '在"每次只赚 1 IP"的阶段，<b>先花 1 IP 买 ×7~×10 的那些（IU21/IU32/IU12/IU11/IU22/IU31）才是对的</b>。</div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">边际提速全表（log 空间拟合）</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>升级</th><th>成本</th><th>Web/Steam</th>' +
+      '<th>安卓</th><th>说明</th></tr></thead><tbody>');
+    O.MARGINAL.forEach(function (m) {
+      h.push('<tr><td><b>' + m[0] + '</b></td><td>' + m[1] + ' IP</td>' +
+        '<td>×' + m[2].toFixed(2) + '</td><td>×' + m[3].toFixed(2) + '</td>' +
+        '<td class="dim" style="font-size:11.5px">' + m[4] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">时间结构（Web/Steam 档，共 26.6 小时 / 4081 次无限）</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>阶段</th><th>累计</th><th>说明</th></tr></thead><tbody>');
+    O.BREAKDOWN.forEach(function (b) {
+      h.push('<tr><td>' + b[0] + '</td><td><b>' + b[1] + '</b></td>' +
+        '<td class="dim" style="font-size:11.5px">' + b[2] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">尝试过的捷径：4 条里 3 条被否</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>捷径</th><th>结论</th><th>依据</th></tr></thead><tbody>');
+    var tagMap = { excluded: '<span style="color:#ff9d9d">走不通</span>',
+      'no-gain': '<span style="color:#ffd700">没收益</span>',
+      reordered: '<span style="color:#7ee787">已改顺序</span>' };
+    O.EXCLUDED.forEach(function (e) {
+      h.push('<tr><td><b>' + e[0] + '</b></td><td>' + (tagMap[e[1]] || e[1]) + '</td>' +
+        '<td style="font-size:12px;line-height:1.7">' + e[2] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    el.innerHTML = h.join('');
+  }
+
   function boot() {
-    renderSteps(); renderIU(); renderLadder(); renderTimeline(); renderPhaseA();
+    renderSteps(); renderIU(); renderLadder(); renderTimeline(); renderPhaseA(); renderOpt();
     renderConst(); renderOpen(); renderLive();
     renderTiming(); renderTimingLive(); renderManual(); renderTick(); renderAch();
   }
