@@ -190,9 +190,43 @@
     { rows: 6, n: 58, pc: 18.5, and: 13.5 }
   ];
 
+
+  // ── v7：全流程极限时间（1 IP → C9）────────────────────────────────────
+  //    尾段 = 破无限后刷到 1e8 IP（IPMult ×16 后 ~3.5 min）→ 买 ID1 → 进 C9（5.7 min）
+  var FULL_CHAIN = [
+    { phase: '刷到 32767 IP（4081 次无限）', pcStd: 4.44 * 3600, andStd: 2.79 * 3600,
+      pcHi: 2.97 * 3600, andHi: 1.79 * 3600,
+      note: '大头：88% 的跑发生在 16 个 IU 齐了之后' },
+    { phase: '刷到 1e8 IP → 买 ID1', pcStd: 0.06 * 3600, andStd: 0.06 * 3600,
+      pcHi: 0.06 * 3600, andHi: 0.06 * 3600,
+      note: 'IPMult ×16 后每次无限 ~17 IP → 不到 4 分钟' },
+    { phase: '进 C9（ID1 已购）', pcStd: 5.7 * 60, andStd: 5.7 * 60,
+      pcHi: 5.7 * 60, andHi: 5.7 * 60,
+      note: 'C9 本体，逐 tick 仿真 5.7 min（攻略实测 ~10 min）' }
+  ];
+  var FULL_TOTAL = {
+    pcStd: 4.56 * 3600, pcHi: 3.13 * 3600,
+    andStd: 2.92 * 3600, andHi: 1.95 * 3600
+  };
+
+  // 极限时间表（安卓 90fps 档）
+  var FULL_STEPS = [
+    { act: '开局（第一次无限→IU22）', dt: 2.47 * 3600, cum: 2.47 * 3600 },
+    { act: 'IU32 / IU12 / IU11 / IU21（1 IP 各）', dt: 7.8 * 60, cum: 2.60 * 3600 },
+    { act: 'IU31 / IU41 / IU42 / IU13 / IU23 / IU33 / IU43（小件）', dt: 13.9 * 60, cum: 2.83 * 3600 },
+    { act: 'IU14（20 IP）', dt: 1.41 * 60, cum: 2.87 * 3600 },
+    { act: 'IU24（40 IP）', dt: 2.56 * 60, cum: 2.91 * 3600 },
+    { act: 'IU34（80 IP）', dt: 4.48 * 60, cum: 2.99 * 3600 },
+    { act: 'IU44（300 IP）——16 个齐', dt: 15.84 * 60, cum: 3.25 * 3600 },
+    { act: 'IP×2 → ×4 → ×8 → ×16', dt: 30.6 * 60, cum: 3.76 * 3600 },
+    { act: '刷到 32767 IP（间隔梯子满）', dt: 3.03 * 3600, cum: 6.79 * 3600 },
+    { act: '刷到 1e8 IP → 买 ID1', dt: 0.06 * 3600, cum: 6.85 * 3600 },
+    { act: '进 C9', dt: 5.7 * 60, cum: 6.95 * 3600 }
+  ];
+
   global.S1OPT = { BEST_ORDER: BEST_ORDER, GUIDE_ORDER: GUIDE_ORDER, PREFIX: PREFIX,
     MARGINAL: MARGINAL, CHAL: CHAL, RESULT: RESULT, BREAKDOWN: BREAKDOWN, EXCLUDED: EXCLUDED,
     BC_LADDER: 32767, LEVER_BOOSTCAP: LEVER_BOOSTCAP, BOOSTCAP_SWEEP: BOOSTCAP_SWEEP, LEVER_DT: LEVER_DT,
     DT_FACTOR: DT_FACTOR, FINAL: FINAL, FINAL_RUNS: FINAL_RUNS, FINAL_NOTE: FINAL_NOTE,
-    PREFIX2: PREFIX2, ACH_ROWS: ACH_ROWS };
+    PREFIX2: PREFIX2, ACH_ROWS: ACH_ROWS, FULL_CHAIN: FULL_CHAIN, FULL_TOTAL: FULL_TOTAL, FULL_STEPS: FULL_STEPS };
 })(typeof window !== 'undefined' ? window : globalThis);

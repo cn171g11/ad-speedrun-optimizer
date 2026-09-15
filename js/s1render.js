@@ -644,8 +644,45 @@
     el.innerHTML = h.join('');
   }
 
+  // ── v7：全流程极限时间 ──────────────────────────────────────────────────
+  function renderFullChain() {
+    var el = $('s1fullchain'); if (!el) return;
+    var O = global.S1OPT; if (!O || !O.FULL_CHAIN) return;
+    var h = [];
+    h.push('<div class="ok-note"><b>全流程极限时间（1 IP → 通关 C9）</b><br>' +
+      '尾段 = 破无限后刷到 1e8 IP（IPMult ×16 后约 4 分钟）→ 买 ID1 → 进 C9（5.7 分钟）。' +
+      '瓶颈仍然是 32767 IP 的大坍缩自动购买器间隔梯子 —— 尾段几乎不占时间。</div>');
+    h.push('<div class="scroll" style="margin-top:12px"><table><thead><tr>' +
+      '<th>阶段</th><th>Web/Steam<br>30fps / 90fps</th><th>安卓<br>30fps / 90fps</th>' +
+      '<th>说明</th></tr></thead><tbody>');
+    O.FULL_CHAIN.forEach(function (r) {
+      h.push('<tr><td><b>' + r.phase + '</b></td>' +
+        '<td>' + fmtT(r.pcStd) + ' / ' + fmtT(r.pcHi) + '</td>' +
+        '<td>' + fmtT(r.andStd) + ' / ' + fmtT(r.andHi) + '</td>' +
+        '<td class="dim" style="font-size:11.5px">' + r.note + '</td></tr>');
+    });
+    h.push('<tr style="background:rgba(126,231,135,.12)"><td><b>★ 全流程</b></td>' +
+      '<td><b>' + fmtT(O.FULL_TOTAL.pcStd) + ' / ' + fmtT(O.FULL_TOTAL.pcHi) + '</b></td>' +
+      '<td><b>' + fmtT(O.FULL_TOTAL.andStd) + ' / ' + fmtT(O.FULL_TOTAL.andHi) + '</b></td>' +
+      '<td class="dim">4081 次无限 + 尾段</td></tr>');
+    h.push('</tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">逐步极限时间表（安卓・90fps 档）</h3>');
+    h.push('<div class="scroll tall"><table><thead><tr><th>#</th><th>阶段</th><th>耗时</th>' +
+      '<th>累计</th></tr></thead><tbody>');
+    O.FULL_STEPS.forEach(function (r, i) {
+      h.push('<tr><td>' + (i + 1) + '</td><td>' + r.act + '</td>' +
+        '<td>' + fmtT(r.dt) + '</td><td><b>' + fmtT(r.cum) + '</b></td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    h.push('<div class="warn" style="margin-top:12px">注意：<b>这是极限（理想化）值</b>。' +
+      '90fps 只有在高刷新率屏幕 + 按住 Max 时才可能达到；30fps 是游戏默认。' +
+      '实际会在两者之间。<b>跑数恒为 4081</b>（瓶颈 32767 IP 的固定成本），所以压缩只能从"单次无限耗时"下手。</div>');
+    el.innerHTML = h.join('');
+  }
+
   function boot() {
-    renderSteps(); renderIU(); renderLadder(); renderTimeline(); renderPhaseA(); renderOpt(); renderLever();
+    renderSteps(); renderIU(); renderLadder(); renderTimeline(); renderPhaseA(); renderOpt(); renderLever(); renderFullChain();
     renderConst(); renderOpen(); renderLive();
     renderTiming(); renderTimingLive(); renderManual(); renderTick(); renderAch();
   }
