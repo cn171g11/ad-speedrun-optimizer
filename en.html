@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AD Speedrun Optimizer — Overview (English)</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="bg-orbs"><i></i><i></i><i></i></div>
+<header class="topbar glass">
+  <div class="brand">
+    <span class="logo">AD</span>
+    <div>
+      <h1>Antimatter Dimensions — Speedrun Optimizer</h1>
+      <p>From 10 AM to the end of the game, every number traced back to source code.</p>
+    </div>
+  </div>
+</header>
+<main>
+  <nav class="subnav glass" id="subnav"></nav>
+
+  <div class="card glass wide">
+    <h2>What this is</h2>
+    <p class="hint" style="font-size:13.5px;line-height:1.8">
+      A set of interactive tools that reverse-engineer <b>Antimatter Dimensions</b>
+      (<a href="https://ivark.github.io/AntimatterDimensions/" style="color:var(--accent)">web</a> /
+      <a href="https://store.steampowered.com/app/1399720/" style="color:var(--accent)">Steam</a> /
+      <a href="https://play.google.com/store/apps/details?id=kajfosz.antimatterdimensions" style="color:var(--accent)">Android</a>)
+      from its open source, simulate the progression tick-by-tick, and turn it into
+      <b>optimal purchase-by-purchase route plans</b>.
+      Every number is either derived from a formula (with the source file cited) or explicitly
+      flagged as "guide-measured" / "estimated". We never disguise an estimate as a computation.
+    </p>
+    <div class="warn" style="margin-top:12px">
+      <b>Note:</b> the detailed pages (stage-1 tool, S1 operation tables, simulations) are currently in
+      <b>Chinese</b>. This page is an English summary of the key results. The core tables use
+      numbers/symbols that are language-independent.
+    </div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>The four stages (one line)</h2>
+    <div class="navcards" style="margin-top:14px">
+      <a class="navcard" href="./stage1.html">
+        <div class="t">Ⅰ First Dimboost → First Infinity</div>
+        <div class="d">Tick-by-tick shortest-path (phase-graph DP + dominance pruning).<br>
+          <b>Total ≈ 7.17 h (Web) / 3.59 h (Android).</b> The Web model matches the world record
+          "Galaxy" (4h07m58s) to within <b>0.2%</b>.</div></a>
+      <a class="navcard" href="./stage2.html">
+        <div class="t">Ⅱ First Infinity → First Eternity</div>
+        <div class="d">9 milestones (in-game speedrun-milestones.js #4–#10) + 3 calculators +
+          log-space tick simulation.<br><b>≈ 12.9 h (Web)</b> — a segmented model, not a full simulation.</div></a>
+      <a class="navcard" href="./stage2-s1.html">
+        <div class="t">Ⅱ-S1 · 1 IP → Break Infinity</div>
+        <div class="d">The deep-dive. Bottleneck, marginal speed-ups, optimal purchase order.<br>
+          <b>17.21 h → 5.61 h (Web)</b> after 3 rounds of optimization (see below).</div></a>
+      <a class="navcard" href="./stage3.html">
+        <div class="t">Ⅲ Eternity → Reality → Cel-1 → Cel-7</div>
+        <div class="d">In-game milestones #10–#25 as the skeleton + guide thresholds
+          (EP priority, TS-tree sequences, EC order, glyphs).<br>
+          <b>Skeleton only — no simulation for reality/celestials.</b></div></a>
+      <a class="navcard" href="./platform.html">
+        <div class="t">🔀 Platform differences</div>
+        <div class="d">Web/Steam vs Android: ad bonus, ×2 dims, tick rate, offline progress, Automator.</div></a>
+    </div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>Headline result — the S1 optimization (1 IP → Break Infinity)</h2>
+    <p class="hint" style="font-size:13px;line-height:1.8">
+      The real bottleneck is <b>not</b> the challenges: it's unlocking "Break Infinity", which (from
+      <code>BreakInfinityButton.vue</code>) requires <code>Autobuyer.bigCrunch.hasMaxedInterval</code>
+      — maxing the Big Crunch autobuyer interval (reward from Challenge 12). The interval ladder
+      costs 1 + 2 + 4 + … + 16384 = <b>32,767 IP</b>, and pre-break each crunch yields exactly
+      <code>floor(308/div × totalIPMult)</code> = <b>1 × IPmult</b>.
+      So the segment is a fixed <b>4,081-crunch grind</b>, and the only levers are crunch time and
+      the purchase order.
+    </p>
+    <div class="scroll" style="margin-top:12px"><table>
+      <thead><tr><th>Optimization round</th><th>Web/Steam</th><th>Android</th></tr></thead>
+      <tbody>
+        <tr><td>Guide order, 30 fps (baseline)</td><td><b>17.21 h</b></td><td><b>10.12 h</b></td></tr>
+        <tr><td>+ optimal purchase order (fit marginal speed-ups)</td><td>10.15 h</td><td>6.62 h</td></tr>
+        <tr style="background:rgba(126,231,135,.12)"><td>+ stop dim-boosting at 6, 90 fps</td><td><b>5.61 h</b></td><td><b>3.45 h</b></td></tr>
+      </tbody>
+    </table></div>
+    <p class="hint" style="font-size:12.5px;margin-top:12px">
+      <b>3.07× total compression (Web).</b> Key insights: (a) with skipReset, buying more than ~6
+      Dimension Boosts <i>slows you down</i> (18.5 s → 5.9 s per crunch — this independently
+      verifies the guide's "after IU44 you no longer need dimension boosts"); (b) "hold Max" fires
+      per-frame, so the refresh rate caps short runs (only 5.9 s runs care; the 5-hour early runs
+      barely move).
+    </p>
+  </div>
+
+  <div class="card glass wide">
+    <h2>How numbers are validated</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Claim</th><th>External check</th><th>Error</th></tr></thead>
+      <tbody>
+        <tr><td>Web model, "to first Galaxy"</td><td>speedrun.com Web WR 4h07m58s</td><td>model 4h07m26s → <b>0.2%</b></td></tr>
+        <tr><td>Web model, "Dimension Boost"</td><td>speedrun.com Web WR 19m44s</td><td>model 18m50s → <b>5%</b></td></tr>
+        <tr><td>Android model, "to first Galaxy"</td><td>speedrun.com Mobile(Ad) WR 2h14m24s</td><td>model 2h03m43s → <b>8%</b></td></tr>
+        <tr><td>Android model, "to Infinity"</td><td>speedrun.com Mobile(Ad) WR 3h50m57s</td><td>model 3h35m06s → <b>6.9%</b></td></tr>
+      </tbody>
+    </table></div>
+    <p class="hint" style="font-size:12.5px;margin-top:12px">
+      The remaining 21 speedrun.com levels (after "Infinity") have <b>0 runs</b> in both categories —
+      nothing public to compare against past the first infinity.
+    </p>
+  </div>
+
+  <div class="card glass wide">
+    <h2>Honest limits</h2>
+    <div class="warn">
+      <b>Simulated, and cross-checked:</b> stage 1 (10 AM → first Infinity), S1 (1 IP → Break Infinity),
+      and the pre-break challenges — all verified against the source and speedrun.com records.<br><br>
+      <b>Skeleton only (no simulation):</b> Eternity → Reality → Cel-1 → Cel-7. These add hundreds of
+      mechanics (Time Studies, Eternity Challenges, dilation, glyphs, celestials) with no closed-form
+      model; we give the official milestone skeleton and guide thresholds, not fake numbers.<br><br>
+      <b>Assumptions to know:</b> the "×2 dimension" Android multiplier comes from the reference
+      optimizer (menelajjj/ad-dimboost-optimizer) and is supported by the WR within 8%; the "ad bonus =
+      global ×2 speed" from the guides conflicts with a ×4 reading, so we list two Android tiers and
+      flag the contradiction.
+    </div>
+  </div>
+
+  <div class="card glass wide">
+    <h2>All pages</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Page</th><th>Content</th><th>Language</th></tr></thead>
+      <tbody>
+        <tr><td><a href="./index.html">🏠 总入口</a></td><td>Landing page (Chinese)</td><td>中文</td></tr>
+        <tr><td><a href="./stage1.html">Ⅰ First Infinity</a></td><td>tick-by-tick shortest-path route</td><td>中文</td></tr>
+        <tr><td><a href="./stage2.html">Ⅱ Stage overview</a></td><td>9 milestones + calculators</td><td>中文</td></tr>
+        <tr><td><a href="./stage2-s1.html">Ⅱ-S1 operation tables</a></td><td>1 IP → C9: manual/auto/timing/optimization</td><td>中文</td></tr>
+        <tr><td><a href="./stage2-sim.html">Ⅱ Simulation</a></td><td>log-space tick sim, fitting vs reference</td><td>中文</td></tr>
+        <tr><td><a href="./stage2-formula.html">Ⅱ Formulas</a></td><td>all reverse-engineered constants + source refs</td><td>中文</td></tr>
+        <tr><td><a href="./stage3.html">Ⅲ Eternity → Cel-7</a></td><td>milestones #10–#25 + guide thresholds</td><td>中文</td></tr>
+        <tr><td><a href="./platform.html">🔀 Platform differences</a></td><td>Web/Steam vs Android</td><td>中文</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</main>
+<footer class="glass">
+  <span>Formulas: IvarK/AntimatterDimensionsSourceCode · Milestones: in-game speedrun-milestones.js · Guides: four Chinese guide PDFs · Records: speedrun.com v1 API</span>
+  <span>English overview</span>
+</footer>
+<script src="js/nav.js"></script>
+</body>
+</html>

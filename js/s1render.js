@@ -563,8 +563,80 @@
     el.innerHTML = h.join('');
   }
 
+  // ── 第三轮压缩：两个新杠杆 ────────────────────────────────────────────
+  function renderLever() {
+    var el = $('s1lever'); if (!el) return;
+    var O = global.S1OPT; if (!O) return;
+    var h = [];
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:6px 0 8px">杠杆 A：高配状态下"少买维度提升"</h3>');
+    h.push('<p class="hint">维度提升会把 1~8 维全部清空重来。在有了 skipReset（重置后保底 4 次提升）之后，' +
+      '"再买提升"换来的 ×2.5 倍率<b>不如"不打断维度链"值钱</b>。逐前缀扫描 boostCap 的结果：</p>');
+    h.push('<div class="scroll"><table><thead><tr><th>阶段</th><th>该怎么办</th><th>为什么 / 量级</th></tr></thead><tbody>');
+    O.LEVER_BOOSTCAP.forEach(function (r) {
+      h.push('<tr><td><b>' + r[0] + '</b></td><td>' + r[1] + '</td>' +
+        '<td class="dim" style="font-size:11.5px">' + r[2] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    h.push('<div class="ok-note" style="margin-top:10px">这一条<b>独立验证了攻略原文</b>：' +
+      '「300IP 购买无限升级44…现在不再需要维度提升，只需要按住最大和点击大坍缩即可」——' +
+      '我的仿真给出的数字是：满配下停在第 6 次提升 = <b>5.9 秒</b>，不限次数 = <b>18.5 秒（×3.14）</b>。</div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">杠杆 B：更新率（dt）—— 短跑的隐藏天花板</h3>');
+    h.push('<p class="hint">「按住 Max」是按<b>帧</b>触发的，所以帧率直接决定级联次数。' +
+      '注意：<b>只影响短跑</b>——4.98 小时那种长跑对帧率几乎无感（1.03×），而 5.9 秒的满配跑能快 2.43 倍。</p>');
+    h.push('<div class="scroll"><table><thead><tr><th>更新率</th><th>满配单次跑（Web）</th>' +
+      '<th>满配单次跑（安卓）</th><th>说明</th></tr></thead><tbody>');
+    O.LEVER_DT.forEach(function (r) {
+      h.push('<tr><td>' + r[0] + ' s</td><td><b>' + r[1] + ' 秒</b></td><td>' + r[2] + ' 秒</td>' +
+        '<td class="dim">' + r[3] + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    h.push('<div class="scroll" style="margin-top:10px"><table><thead><tr><th>已购 IU 数</th>' +
+      O.DT_FACTOR.map(function (r) { return '<th>' + r.n + '</th>'; }).join('') + '</tr></thead><tbody><tr>' +
+      '<td>dt 0.011 相对 0.033 的加速比</td>' +
+      O.DT_FACTOR.map(function (r) { return '<td>×' + r.factor.toFixed(2) + '</td>'; }).join('') +
+      '</tr></tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">★ 最终结果：三轮杠杆叠加</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>方案</th><th>Web/Steam</th><th>安卓</th>' +
+      '<th>相对①</th></tr></thead><tbody>');
+    var base = O.FINAL[0];
+    O.FINAL.forEach(function (r) {
+      h.push('<tr' + (r.best ? ' style="background:rgba(126,231,135,.12)"' : '') + '>' +
+        '<td><b>' + r.name + '</b></td><td>' + fmtT(r.pc) + '</td><td>' + fmtT(r.and) + '</td>' +
+        '<td>' + (r.pc <= base.pc ? '省 ' + fmtT(base.pc - r.pc) : '—') + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    h.push('<div class="ok-note" style="margin-top:12px"><b>总压缩 3.07×（Web）/ 2.93×（安卓）</b>：' +
+      '17.21 小时 → <b>5.61 小时</b>；安卓 10.12 小时 → <b>3.45 小时</b>。<br>' + O.FINAL_NOTE + '</div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">前缀表 v2（boostCap 取优后，单次无限耗时）</h3>');
+    h.push('<div class="scroll"><table><thead><tr><th>#IU</th><th>新增</th><th>Web/Steam</th>' +
+      '<th>安卓</th></tr></thead><tbody>');
+    O.PREFIX2.forEach(function (r) {
+      h.push('<tr><td>' + r.n + '</td><td>' + r.added + '</td><td><b>' + fmtT(r.pc) + '</b></td>' +
+        '<td>' + fmtT(r.and) + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+
+    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">顺带否掉的一条思路：靠挑战换成就行</h3>');
+    h.push('<p class="hint">成就的总倍率是 1.03^个数 × 1.25^行数。挑战能一下子补几行，听起来能摊薄后续几千次跑。实测（16 IU 满配）：</p>');
+    h.push('<div class="scroll"><table><thead><tr><th>成就行数</th><th>个数</th>' +
+      '<th>单次跑（Web）</th><th>单次跑（安卓）</th></tr></thead><tbody>');
+    O.ACH_ROWS.forEach(function (r) {
+      h.push('<tr><td>' + r.rows + ' 行</td><td>' + r.n + '</td><td>' + r.pc + ' 秒</td>' +
+        '<td>' + r.and + ' 秒</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    h.push('<div class="warn" style="margin-top:10px">从 2 行加到 6 行只快 <b>1.33×</b>（24.7s → 18.5s），' +
+      '而挑战本身要花 21.8~105.6 秒（普通无限只要 19 秒）。把挑战算进去，总时长从 10.15h 变成 10.19h —— ' +
+      '<b>不划算</b>。原因：时间对产能是<b>对数敏感</b>的，成就倍率再高也压不动多少。</div>');
+    el.innerHTML = h.join('');
+  }
+
   function boot() {
-    renderSteps(); renderIU(); renderLadder(); renderTimeline(); renderPhaseA(); renderOpt();
+    renderSteps(); renderIU(); renderLadder(); renderTimeline(); renderPhaseA(); renderOpt(); renderLever();
     renderConst(); renderOpen(); renderLive();
     renderTiming(); renderTimingLive(); renderManual(); renderTick(); renderAch();
   }

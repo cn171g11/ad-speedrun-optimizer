@@ -118,7 +118,71 @@
       '换来的 5~8% 提速收不回来</b>。所以最优顺序把它们推到了第 12~14 位']
   ];
 
+
+  // ── 本轮新增的两个杠杆（第三轮压缩）─────────────────────────────────────
+  //  杠杆 A：高配状态下"少买维度提升" —— 提升会清空维度链，而 skipReset 已给了 4 次保底
+  //  杠杆 B：更新率（dt）—— "按住 Max" 是按帧触发的，帧率越高级联越快
+  var LEVER_BOOSTCAP = [
+    ['IU31 之前（0~5 个 IU）', '不要停', '此时提升是唯一的倍率来源，停提升反而慢 1.5~2 倍'],
+    ['IU31 之后（6 个 IU 起）', '<b>停在第 6 次</b>', '6 次提升刚好够开星系；再多买提升只是反复清空维度链'],
+    ['IU44 满配', '<b>停在第 6 次</b>：18.5 秒 → <b>5.9 秒（×3.14）</b>', '这就是攻略那句"买 IU44 之后不再需要维度提升"的定量版本']
+  ];
+
+  var LEVER_DT = [
+    [0.033, 18.5, 13.5, '游戏默认 33ms（30fps）'],
+    [0.02,  11.8, 8.6,  '50fps'],
+    [0.011, 7.0,  5.2,  '90fps（高刷新屏）']
+  ];
+
+  // dt 的加速比只作用在短跑上；长跑几乎不受影响（逐前缀实测）
+  var DT_FACTOR = [
+    { n: 0,  factor: 1.03 }, { n: 2,  factor: 1.09 }, { n: 4,  factor: 1.24 },
+    { n: 6,  factor: 1.49 }, { n: 8,  factor: 1.63 }, { n: 10, factor: 1.94 },
+    { n: 12, factor: 2.07 }, { n: 14, factor: 2.08 }, { n: 16, factor: 2.43 }
+  ];
+
+  // ── 最终结果（三轮杠杆叠加）────────────────────────────────────────────
+  var FINAL = [
+    { name: '① 攻略顺序・30fps（基准）', pc: 17.21 * 3600, and: 10.12 * 3600 },
+    { name: '② ＋最优采购顺序・30fps', pc: 10.15 * 3600, and: 6.62 * 3600 },
+    { name: '③ ＋停提升＋高刷新率(90fps)', pc: 5.61 * 3600, and: 3.45 * 3600, best: true }
+  ];
+  var FINAL_RUNS = 4081;   // 恒定：瓶颈是 32767 IP
+  var FINAL_NOTE = '跑数恒为 4081（88.4% 发生在 16 个 IU 齐了之后）—— 因为瓶颈是 32767 IP 这个固定成本，与策略无关。';
+
+  // 前缀表 v2（boostCap 取优后）
+  var PREFIX2 = [
+    { n: 0,  pc: 4.983 * 3600, and: 2.468 * 3600, added: '（开局，无升级）' },
+    { n: 1,  pc: 7.21 * 60,    and: 3.89 * 60,    added: 'IU22（2/7 维）' },
+    { n: 2,  pc: 7.21 * 60,    and: 3.89 * 60,    added: 'IU32（4/5 维）' },
+    { n: 3,  pc: 3.31 * 60,    and: 1.76 * 60,    added: 'IU12（买十倍率）' },
+    { n: 4,  pc: 3.29 * 60,    and: 1.76 * 60,    added: 'IU11（时间倍率）' },
+    { n: 5,  pc: 3.29 * 60,    and: 1.76 * 60,    added: 'IU21（1/8 维）' },
+    { n: 6,  pc: 38.7,         and: 24.0,         added: 'IU31（3/6 维）★ 从这里开始停提升' },
+    { n: 7,  pc: 36.9,         and: 22.9,         added: 'IU41（提升需求−9）' },
+    { n: 8,  pc: 25.7,         and: 16.5,         added: 'IU42（星系×2）' },
+    { n: 9,  pc: 25.7,         and: 16.5,         added: 'IU13（本次无限时间）' },
+    { n: 10, pc: 17.8,         and: 11.9,         added: 'IU23（未花费 IP）' },
+    { n: 11, pc: 15.6,         and: 10.6,         added: 'IU33（提升倍率 2.5）' },
+    { n: 12, pc: 14.8,         and: 10.1,         added: 'IU14（skipReset1）' },
+    { n: 13, pc: 13.6,         and: 9.3,          added: 'IU24（skipReset2）' },
+    { n: 14, pc: 12.1,         and: 8.3,          added: 'IU34（skipReset3）' },
+    { n: 15, pc: 12.1,         and: 8.3,          added: 'IU43（被动 IP）' },
+    { n: 16, pc: 5.9,          and: 4.2,          added: 'IU44（skipResetGalaxy）★ 满配' }
+  ];
+
+  // 成就行数 → 单次跑耗时（16 IU 满配）：影响很小
+  var ACH_ROWS = [
+    { rows: 2, n: 22, pc: 24.7, and: 17.6 },
+    { rows: 3, n: 30, pc: 23.0, and: 16.4 },
+    { rows: 4, n: 40, pc: 21.1, and: 15.2 },
+    { rows: 5, n: 51, pc: 19.1, and: 14.0 },
+    { rows: 6, n: 58, pc: 18.5, and: 13.5 }
+  ];
+
   global.S1OPT = { BEST_ORDER: BEST_ORDER, GUIDE_ORDER: GUIDE_ORDER, PREFIX: PREFIX,
     MARGINAL: MARGINAL, CHAL: CHAL, RESULT: RESULT, BREAKDOWN: BREAKDOWN, EXCLUDED: EXCLUDED,
-    BC_LADDER: 32767 };
+    BC_LADDER: 32767, LEVER_BOOSTCAP: LEVER_BOOSTCAP, LEVER_DT: LEVER_DT,
+    DT_FACTOR: DT_FACTOR, FINAL: FINAL, FINAL_RUNS: FINAL_RUNS, FINAL_NOTE: FINAL_NOTE,
+    PREFIX2: PREFIX2, ACH_ROWS: ACH_ROWS };
 })(typeof window !== 'undefined' ? window : globalThis);
