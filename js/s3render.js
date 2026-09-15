@@ -76,6 +76,26 @@
     if (e4) e4.innerHTML = tb(G.PELLE_SHOCKS, [['阶段', '130px'], ['区间', '180px'], ['内容', '']]);
     var e5 = $('s3setup');
     if (e5) e5.innerHTML = tb(G.SETUP, [['项目', '150px'], ['内容', '']]);
+    var c1 = $('s3cel7early');
+    if (c1) c1.innerHTML = tb(G.CEL7_EARLY, [['阶段', '150px'], ['做什么', '360px'], ['阈值 / 要点', '']]);
+    var c2 = $('s3cel7ec');
+    if (c2) {
+      var h2 = ['<p class="hint">教程原表共 ' + (G.CEL7_EC || []).length + ' 条，<b>从上到下就是推荐完成顺序</b>；TT 空白表示沿用上一行。</p>',
+        '<div class="scroll tall"><table><thead><tr><th>#</th><th>EC</th><th>符文</th><th>TT 需求</th>' +
+        '<th>时间研究树</th><th>备注</th></tr></thead><tbody>'];
+      (G.CEL7_EC || []).forEach(function (r, i) {
+        h2.push('<tr><td class="dim">' + (i + 1) + '</td><td><b>' + r[0] + '</b></td>' +
+          '<td>' + (r[2] || '—') + '</td><td>' + (r[3] || '同上') + '</td>' +
+          '<td class="dim" style="font-size:11px">' + (r[4] || []).join(' ') + '</td>' +
+          '<td class="dim" style="font-size:11.5px">' + (r[1] || '') + '</td></tr>');
+      });
+      h2.push('</tbody></table></div>');
+      c2.innerHTML = h2.join('');
+    }
+    var c3 = $('s3cel7faq');
+    if (c3) c3.innerHTML = tb(G.CEL7_FAQ, [['问题', '180px'], ['答案', '']]);
+    var c4 = $('s3rune');
+    if (c4) c4.innerHTML = tb(G.RUNE, [['项目', '170px'], ['内容', '']]);
     var e6 = $('s3open');
     if (e6) e6.innerHTML = tb(G.OPEN_NOTES, [['项目', '150px'], ['说明', '']]);
     var e7 = $('s3sr');

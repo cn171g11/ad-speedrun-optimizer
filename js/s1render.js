@@ -465,8 +465,31 @@
     el.innerHTML = h.join('');
   }
 
+  // ── S1 阶段 A 时间线（C8 vs 普通无限）─────────────────────────────────
+  function renderPhaseA() {
+    var el = $('s1phasea'); if (!el) return;
+    var P = D.PHASE_A; if (!P) return;
+    var h = ['<div class="warn"><b>C8 结案：</b>resetChallengeStuff() 明确把 <code>player.chall8TotalSacrifice</code> 重置为 1，' +
+      '而它被 softReset（每次维度提升/大坍缩）与 eternity 调用 —— 所以 <b>C8 每次都得从倍率 1 重新开始，没有加速链</b>。' +
+      '下面按"每跑独立"算到 20 IP。</div>',
+      '<div class="scroll" style="margin-top:10px"><table><thead><tr><th>阶段</th><th>跑数</th>' +
+      '<th>普通无限（每跑）</th><th>C8（每跑）</th><th>小计·普通</th><th>小计·C8</th></tr></thead><tbody>'];
+    P.rows.forEach(function (r) {
+      h.push('<tr><td>' + r.lab + '</td><td>' + r.n + '</td>' +
+        '<td>' + fmtT(r.normal) + '</td><td>' + fmtT(r.c8) + '</td>' +
+        '<td>' + fmtT(r.normal * r.n) + '</td><td>' + fmtT(r.c8 * r.n) + '</td></tr>');
+    });
+    h.push('<tr style="background:rgba(126,231,135,.10)"><td colspan="4"><b>合计到 20 IP（共 20 跑）</b></td>' +
+      '<td><b>' + fmtT(P.totalNormal) + '</b></td><td><b>' + fmtT(P.totalC8) + '</b></td></tr>');
+    h.push('</tbody></table></div>');
+    h.push('<div class="ok-note" style="margin-top:12px">★ 结论：<b>普通无限农场 11.80 小时</b>，C8 农场 34.27 小时 —— ' +
+      '普通无限快 <b>1.90 倍</b>。所以攻略那句"不断完成 C8 快速获得大量 IP"在当前版本下不成立' +
+      '（教程本身也提到过平衡改动：「安卓版早已移除自动购买器的优先级…」）。S1 阶段 A 的时间线就按普通无限算。</div>');
+    el.innerHTML = h.join('');
+  }
+
   function boot() {
-    renderSteps(); renderIU(); renderLadder(); renderTimeline();
+    renderSteps(); renderIU(); renderLadder(); renderTimeline(); renderPhaseA();
     renderConst(); renderOpen(); renderLive();
     renderTiming(); renderTimingLive(); renderManual(); renderTick(); renderAch();
   }
