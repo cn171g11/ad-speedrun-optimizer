@@ -1,728 +1,326 @@
 /* ============================================================================
- * S1 段渲染（s1render.js）
- *   · 静态部分：数据来自 js/s1data.js
- *   · 动态部分：页面直接加载 model.js + s1sim.js，可以现场跑逐 tick 仿真，
- *     输出「这一次无限里的每一笔购买」（买什么维度、第几次提升、第几个星系）
+ * S1 段工作台渲染（s1render.js）
+ * ----------------------------------------------------------------------------
+ * Consumes the data contract window.S1FLOW (version 's1-audit-1') produced by
+ * the main agent, plus S1SIM (model.js + s1sim.js) for the IU grid and the
+ * on-demand C9 recompute. All times render as HH:MM:SS. No data is fabricated:
+ * missing/empty fields render an explicit "未生成" placeholder.
  * ============================================================================ */
 (function (global) {
   'use strict';
-  var D = global.S1DATA;
+
+  var FLOW = global.S1FLOW;
+  var SIM = global.S1SIM;
+  var CONTRACT_VERSION = 's1-audit-1';
+  var SECONDS_PER_HOUR = 3600;
+  var SECONDS_PER_MINUTE = 60;
   var $ = function (id) { return document.getElementById(id); };
-  var t = function (s) { return s; };
+
+  // ── formatting helpers ────────────────────────────────────────────────
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function roundSec(s) { return Math.round(s || 0); }
+
+  // All duration cells use HH:MM:SS so the operation table stays internally
+  // consistent (rounded cumulative, rounded wait diff).
+  function fmtHMS(sec) {
+    var s = Math.max(0, roundSec(sec));
+    var h = Math.floor(s / SECONDS_PER_HOUR);
+    var m = Math.floor((s % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
+    var r = s % SECONDS_PER_MINUTE;
+    return pad2(h) + ':' + pad2(m) + ':' + pad2(r);
+  }
 
   function fmtNum(x) {
+    if (x === null || x === undefined) return '—';
     if (!isFinite(x)) return '∞';
     if (x >= 1e6 || x < 1e-3) return x.toExponential(2).replace('e+', 'e');
     return String(Math.round(x * 1000) / 1000);
   }
-  function fmtT(sec) {
-    if (sec < 60) return sec.toFixed(1) + ' 秒';
-    if (sec < 3600) return (sec / 60).toFixed(2) + ' 分钟';
-    return (sec / 3600).toFixed(3) + ' 小时';
-  }
 
-  // ── 分步操作表 ────────────────────────────────────────────────────────
-  function renderSteps() {
-    var el = $('s1steps'); if (!el) return;
-    var h = [];
-    D.GROUPS.forEach(function (g) {
-      h.push('<h3 style="font-size:13px;color:' + g.color + ';margin:22px 0 10px;' +
-        'border-left:3px solid ' + g.color + ';padding-left:9px">' + g.name + '</h3>');
-      h.push('<div class="scroll tall"><table><thead><tr>' +
-        '<th style="width:34px">#</th><th style="width:26%">做什么</th>' +
-        '<th style="width:24%">买什么（逐笔）</th><th style="width:11%">成本</th><th>为什么</th>' +
-        '</tr></thead><tbody>');
-      D.STEPS.filter(function (s) { return s.g === g.g; }).forEach(function (s) {
-        h.push('<tr><td><b>' + s.n + '</b></td><td>' + s.act + '</td>' +
-          '<td style="color:#9dcaff">' + s.buy + '</td>' +
-          '<td style="color:var(--gold)">' + s.cost + '</td>' +
-          '<td style="color:var(--txt-dim);font-size:12px">' + s.why + '</td></tr>');
-      });
-      h.push('</tbody></table></div>');
+  // Escape data strings before injecting into innerHTML to avoid HTML injection.
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;';
     });
-    el.innerHTML = h.join('');
   }
 
-  // ── 完整操作表（压缩后 · 同第一阶段格式）──────────────────────────────
-  function renderFlow() {
-    var el = $('s1flow'); if (!el) return;
-    var F = global.S1FLOW; if (!F) return;
-    var h = [];
-    var phName = { A: '#58a6ff', B: '#ffd700', C: '#9dcaff', D: '#7ee787', E: '#ff9b9b' };
-    // KPI
-    h.push('<div class="kpis">' +
-      '<div class="kpi"><div class="k">压缩后总用时（Web 30fps）</div><div class="v">' + fmtT(F.compressed.pc30) + '</div><div class="s">90fps 极限 ' + fmtT(F.compressed.pc90) + '</div></div>' +
-      '<div class="kpi"><div class="k">压缩后总用时（安卓 30fps）</div><div class="v">' + fmtT(F.compressed.and30) + '</div><div class="s">90fps 极限 ' + fmtT(F.compressed.and90) + '</div></div>' +
-      '<div class="kpi"><div class="k">跑数</div><div class="v">' + F.runs + '</div><div class="s">瓶颈 = 32767 IP 固定成本</div></div>' +
-      '<div class="kpi"><div class="k">满提升基线（逐笔）</div><div class="v">' + fmtT(F.baselineTotal) + '</div><div class="s">每跑耗时 × 跑数（Web 30fps）</div></div>' +
-      '</div>');
-    // 阶段分组表
-    F.phases.forEach(function (p) {
-      var rows = F.steps.filter(function (s) { return s.ph === p.id; });
-      h.push('<h3 style="font-size:13px;color:' + phName[p.id] + ';margin:20px 0 8px;' +
-        'border-left:3px solid ' + phName[p.id] + ';padding-left:9px">阶段 ' + p.id + ' · ' + p.name +
-        ' <span style="color:var(--txt-dim);font-weight:400">' + p.desc + '</span></h3>');
-      h.push('<div class="scroll"><table><thead><tr>' +
-        '<th style="width:30px">#</th><th style="width:26%">操作流程</th><th style="width:26%">购买项目</th>' +
-        '<th style="width:14%">数量</th><th style="width:12%">等待的时间</th><th style="width:12%">总计的时间</th>' +
-        '</tr></thead><tbody>');
-      rows.forEach(function (s) {
-        h.push('<tr><td style="color:var(--txt-dim)">' + (F.steps.indexOf(s) + 1) + '</td>' +
-          '<td>' + s.act + (s.mark ? ' <b style="color:var(--gold)">' + s.mark + '</b>' : '') + '</td>' +
-          '<td style="color:#9dcaff">' + s.item + '</td>' +
-          '<td>' + s.qty + '</td>' +
-          '<td style="color:var(--gold)">' + fmtT(s.wait) + '</td>' +
-          '<td><b>' + fmtT(s.cum) + '</b></td></tr>');
-      });
-      h.push('</tbody></table></div>');
+  function empty(msg) { return '<div class="s1-empty">' + esc(msg || '未生成') + '</div>'; }
+
+  // Break routes flagged unverified must keep their original order (never sorted).
+  function isUnverified(status) {
+    if (status == null) return false;
+    return /未验证/i.test(status) || /unverif/i.test(status) || status === 'unverified';
+  }
+
+  // ── version banner ────────────────────────────────────────────────────
+  function renderVersion() {
+    var host = $('s1Version');
+    if (!host) return;
+    var v = FLOW && FLOW.version;
+    if (v === CONTRACT_VERSION) { host.innerHTML = ''; return; }
+    host.innerHTML = '<div class="s1-warn">数据合同版本不匹配（当前：' +
+      esc(v || '未定义') + '，期望：' + CONTRACT_VERSION +
+      '）。请重新生成仿真数据后刷新，当前各区块显示为空占位。</div>';
+  }
+
+  // ── assumptions ───────────────────────────────────────────────────────
+  function renderAssumptions() {
+    var host = $('s1Assumptions');
+    if (!host) return;
+    var list = FLOW && FLOW.assumptions;
+    if (!list || !list.length) { host.innerHTML = empty('假设未生成'); return; }
+    host.innerHTML = '<ul class="s1-assumptions">' + list.map(function (a) {
+      return '<li>' + esc(a) + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  // ── route comparison ─────────────────────────────────────────────────
+  function renderComparison() {
+    var host = $('s1Comparison');
+    if (!host) return;
+    var list = FLOW && FLOW.comparison;
+    if (!list || !list.length) { host.innerHTML = empty('路线对比未生成'); return; }
+
+    // Verified routes sort by seconds; unverified break routes keep original order.
+    var verified = [], unverified = [];
+    list.forEach(function (r) {
+      (isUnverified(r.status) || r.seconds == null ? unverified : verified).push(r);
     });
-    h.push('<div class="warn" style="margin-top:12px">' + F.note + '</div>');
-    el.innerHTML = h.join('');
-  }
+    verified.sort(function (a, b) { return (a.seconds || 0) - (b.seconds || 0); });
+    var ordered = verified.concat(unverified);
 
-  // ── 无限升级网格 ─────────────────────────────────────────────────────
-  function renderIU() {
-    var el = $('s1iu'); if (!el) return;
-    var h = ['<div class="scroll"><table><thead><tr><th>编号</th><th>位置</th><th>成本</th>' +
-      '<th>名称</th><th>效果（源码）</th><th>前置</th><th>攻略时机</th></tr></thead><tbody>'];
-    D.IU_GRID.forEach(function (u) {
-      h.push('<tr><td><b>' + u.key + '</b></td><td>第 ' + u.row + ' 行 第 ' + u.col + ' 列</td>' +
-        '<td style="color:var(--gold)">' + u.cost + ' IP</td><td>' + u.name + '</td>' +
-        '<td style="color:#9dcaff;font-size:12px">' + u.eff + '</td>' +
-        '<td>' + (u.req || '—') + '</td>' +
-        '<td style="color:var(--txt-dim);font-size:12px">' + u.why + '</td></tr>');
-    });
-    h.push('</tbody></table></div>' +
-      '<p class="hint">网格结构来自 <code>InfinityUpgradesTab.vue</code> 的 <code>grid</code> 定义，' +
-      '源码注释写明「同一列内必须自上而下购买」。攻略正文用的是「第 x 行第 y 列」，与上表编号一一对应。</p>');
-    el.innerHTML = h.join('');
-  }
-
-  // ── 阶梯表 ────────────────────────────────────────────────────────────
-  function renderLadder() {
-    var el = $('s1ladder'); if (!el) return;
-    var h = ['<div class="scroll"><table><thead><tr><th>配置</th><th>仿真 dt=1/30</th>' +
-      '<th>仿真 dt=1/60</th><th>攻略实测</th><th>偏差</th><th>说明</th></tr></thead><tbody>'];
-    D.LADDER.forEach(function (r) {
-      var dev = r.guide ? (r.dt30 / r.guide) : null;
-      var cls = dev === null ? 'var(--txt-mute)' :
-        (dev < 1.6 && dev > 0.6 ? '#7ee787' : (dev < 3 && dev > 0.33 ? '#ffd700' : '#ff9d3d'));
-      h.push('<tr><td>' + r.name + '</td>' +
-        '<td><b>' + fmtT(r.dt30) + '</b></td><td>' + fmtT(r.dt60) + '</td>' +
-        '<td>' + (r.guide ? fmtT(r.guide) : '—') + '</td>' +
-        '<td style="color:' + cls + '">' + (dev === null ? '—' : dev.toFixed(2) + '×') + '</td>' +
-        '<td style="color:var(--txt-dim);font-size:12px">' + r.note + '</td></tr>');
+    var h = ['<div class="scroll"><table><thead><tr>',
+      '<th>路线</th><th>状态</th><th>耗时</th><th>说明</th>',
+      '</tr></thead><tbody>'];
+    ordered.forEach(function (r) {
+      var cls = isUnverified(r.status) ? 'unverified' : 'verified';
+      var sec = (r.seconds == null) ? '<span class="s1-mute">—</span>' : '<b>' + fmtHMS(r.seconds) + '</b>';
+      h.push('<tr><td>' + esc(r.name) + '</td><td><span class="s1-tag ' + cls + '">' + esc(r.status || '') + '</span></td><td>' + sec + '</td><td class="s1-note">' + esc(r.note || '') + '</td></tr>');
     });
     h.push('</tbody></table></div>');
-    el.innerHTML = h.join('');
+    if (unverified.length) {
+      h.push('<p class="s1-warn">标注「未验证」的 break 路线不参与排序，按原始顺序置于末尾。</p>');
+    }
+    host.innerHTML = h.join('');
   }
 
-  // ── 全流程时间线 ─────────────────────────────────────────────────────
-  function renderTimeline() {
-    var el = $('s1timeline'); if (!el) return;
-    var h = ['<div class="scroll"><table><thead><tr><th>第几次无限</th><th>本次买入</th>' +
-      '<th>本跑用时</th><th>累计</th><th>手上 IP</th></tr></thead><tbody>'];
-    D.TIMELINE.forEach(function (r) {
-      h.push('<tr><td>' + r.n + '</td><td style="color:#9dcaff">' + r.buy + '</td>' +
-        '<td>' + r.time + '</td><td><b>' + r.cum + '</b></td><td>' + r.ip + '</td></tr>');
+  // Durations that may be missing (route did not finish) render as an explicit
+  // "超时/未完成" marker instead of 00:00:00.
+  function fmtUnfinished(sec) {
+    if (sec == null) return '<span class="s1-unfinished">超时/未完成</span>';
+    return '<b>' + fmtHMS(sec) + '</b>';
+  }
+
+  // ── candidate routes ──────────────────────────────────────────────────
+  function renderCandidates() {
+    var host = $('s1Candidates');
+    if (!host) return;
+    var list = FLOW && FLOW.candidates;
+    if (!list || !list.length) { host.innerHTML = empty('候选路线未生成'); return; }
+    var h = ['<div class="scroll"><table><thead><tr>',
+      '<th>路线</th><th>总耗时</th><th>C9 耗时</th><th>筹备耗时</th><th>库存 IP</th><th>boostCap</th><th>galaxyCap</th>',
+      '</tr></thead><tbody>'];
+    list.forEach(function (r) {
+      // r.seconds is the full-route total time; null ⇒ route did not finish.
+      var prep = (r.preparationSeconds == null)
+        ? '<span class="s1-mute">—</span>' : fmtHMS(r.preparationSeconds);
+      h.push('<tr><td>' + esc(r.name) + '</td>',
+        '<td>' + fmtUnfinished(r.seconds) + '</td>',
+        '<td>' + fmtUnfinished(r.c9Seconds) + '</td>',
+        '<td>' + prep + '</td>',
+        '<td>' + esc(r.stock) + '</td>',
+        '<td>' + esc(r.boostCap) + '</td>',
+        '<td>' + esc(r.galaxyCap) + '</td></tr>');
     });
-    h.push('</tbody></table></div>' +
-      '<div class="warn" style="margin-top:12px">上面这张表是<b>仿真跑出来的</b>（正常无限路线，dt=1/30）。' +
-      '它只到第 5 次无限就停了 —— 因为第 6 次开始攻略要求进 C8 刷，而<b>我的 C8 模型攻不下来</b>（见下方未解问题）。' +
-      '所以「1 IP → C9」的<b>总时长我给不出可信数字</b>：前 5 次 5.58 小时是算出来的，之后的部分是攻略实测值。</div>');
-    el.innerHTML = h.join('');
+    h.push('</tbody></table></div>');
+    host.innerHTML = h.join('');
   }
 
-  // ── 常数表 ────────────────────────────────────────────────────────────
+  // ── selected route header ─────────────────────────────────────────────
+  function renderSelectedHeader() {
+    var name = $('s1SelectedName');
+    var meta = $('s1SelectedMeta');
+    var sel = FLOW && FLOW.selected;
+    if (name) name.textContent = sel && sel.name ? sel.name : '（未生成）';
+    if (!meta) return;
+    if (!sel) { meta.textContent = ''; return; }
+    var parts = [];
+    if (sel.seconds != null) parts.push('估计总耗时 ' + fmtHMS(sel.seconds));
+    if (sel.c9Seconds != null) parts.push('C9 耗时 ' + fmtHMS(sel.c9Seconds));
+    meta.textContent = parts.join('　·　');
+  }
+
+  // ── operation table ───────────────────────────────────────────────────
+  // Expands a preparation/purchase row's per-round farm log (row.farmRuns).
+  // Each entry is { seconds, boostCap, galaxyCap, ipBefore, infinity } from the
+  // real simulation — rendered as-is, with no fabricated values.
+  function renderFarmRuns(runs) {
+    var body = runs.map(function (run, k) {
+      return '<tr><td>' + (k + 1) + '</td><td>' + fmtHMS(run.seconds) + '</td><td>' +
+        esc(run.boostCap) + '</td><td>' + esc(run.galaxyCap) + '</td><td>' +
+        esc(run.ipBefore) + '</td><td>' + esc(run.infinity) + '</td></tr>';
+    }).join('');
+    return '<details class="s1-farm"><summary>查看 ' + runs.length + ' 轮筹备明细</summary>' +
+      '<div class="scroll"><table><thead><tr><th>#</th><th>逐轮用时</th><th>提升上限</th>' +
+      '<th>星系上限</th><th>IP 起点</th><th>无限次数</th></tr></thead><tbody>' +
+      body + '</tbody></table></div></details>';
+  }
+
+  function renderFlow() {
+    var host = $('s1Flow');
+    if (!host) return;
+    var sel = FLOW && FLOW.selected;
+    if (!sel || !sel.rows || !sel.rows.length) { host.innerHTML = empty('操作表未生成'); return; }
+
+    // Wait cell shows the integer diff of adjacent rounded cumulative seconds,
+    // so the displayed waits sum back to the displayed total. Tooltip keeps the
+    // raw (possibly fractional) wait seconds from the data.
+    var h = ['<div class="scroll tall"><table><thead><tr>',
+      '<th>#</th><th>操作流程</th><th>购买项目</th><th>数量</th>',
+      '<th>等待时间</th><th>累计时间</th><th>剩余IP</th>',
+      '</tr></thead><tbody>'];
+    var prevCum = 0;
+    sel.rows.forEach(function (r, i) {
+      var cum = roundSec(r.cumulative);
+      var dispWait = cum - prevCum;
+      prevCum = cum;
+      var text = (r.action || '') + ' ' + (r.item || '') + ' ' + (r.quantity || '');
+      var itemCell = esc(r.item);
+      if (r.farmRuns && r.farmRuns.length) itemCell += renderFarmRuns(r.farmRuns);
+      h.push('<tr data-text="' + esc(text.toLowerCase()) + '"><td>' + (i + 1) + '</td><td>' + esc(r.action) + '</td><td>' + itemCell + '</td><td>' + esc(r.quantity) + '</td><td title="原始等待 ' + fmtNum(r.wait) + ' 秒">' + fmtHMS(dispWait) + '</td><td><b>' + fmtHMS(cum) + '</b></td><td>' + esc(r.ip) + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    host.innerHTML = h.join('');
+  }
+
+  // Hide rows whose data-text does not contain the filter query.
+  function wireFilter() {
+    var inp = $('s1FlowFilter');
+    var host = $('s1Flow');
+    if (!inp || !host) return;
+    inp.addEventListener('input', function () {
+      var q = inp.value.trim().toLowerCase();
+      var trs = host.getElementsByTagName('tr');
+      for (var i = 0; i < trs.length; i++) {
+        var dt = trs[i].getAttribute('data-text');
+        if (dt === null) continue; // header row has no data-text
+        trs[i].style.display = (!q || dt.indexOf(q) >= 0) ? '' : 'none';
+      }
+    });
+  }
+
+  // ── IU grid (from S1SIM, not from data contract) ──────────────────────
+  function renderIU() {
+    var host = $('s1IU');
+    if (!host) return;
+    if (!SIM || !SIM.IU || !SIM.IU.length) { host.innerHTML = empty('IU 网格未生成'); return; }
+    var h = ['<div class="scroll"><table><thead><tr>',
+      '<th>编号</th><th>位置</th><th>成本</th><th>名称</th><th>效果（源码）</th><th>前置</th>',
+      '</tr></thead><tbody>'];
+    SIM.IU.forEach(function (u) {
+      h.push('<tr><td><b>' + esc(u.key) + '</b></td>',
+        '<td>第 ' + u.row + ' 行 第 ' + u.col + ' 列</td>',
+        '<td>' + fmtNum(u.cost) + ' IP</td>',
+        '<td>' + esc(u.name) + '</td>',
+        '<td class="s1-note">' + esc(u.eff) + '</td>',
+        '<td>' + (u.req ? esc(u.req) : '—') + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    host.innerHTML = h.join('');
+  }
+
+  // ── sensitivity ────────────────────────────────────────────────────────
+  function renderSensitivity() {
+    var host = $('s1Sensitivity');
+    if (!host) return;
+    var list = FLOW && FLOW.sensitivity;
+    if (!list || !list.length) { host.innerHTML = empty('敏感性未生成'); return; }
+    var h = ['<div class="scroll"><table><thead><tr>',
+      '<th>步长 dt</th><th>结果</th><th>耗时</th>',
+      '</tr></thead><tbody>'];
+    list.forEach(function (r) {
+      var cls = r.ok ? 'verified' : 'unverified';
+      var sec = (r.seconds == null) ? '<span class="s1-mute">—</span>' : '<b>' + fmtHMS(r.seconds) + '</b>';
+      h.push('<tr><td><b>' + esc(r.dt) + '</b></td>',
+        '<td><span class="s1-tag ' + cls + '">' + (r.ok ? '成功' : '超时') + '</span></td>',
+        '<td>' + sec + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    host.innerHTML = h.join('');
+  }
+
+  // ── constants table (S1DATA.CONST) ─────────────────────────────────────
+  // Kept for the formula page (stage2-formula.html) which reuses this renderer's
+  // #s1const entry: it injects window.S1DATA.CONST directly. Guarded so it is a
+  // no-op on pages (e.g. stage2-s1.html) that do not carry S1DATA / #s1const.
   function renderConst() {
-    var el = $('s1const'); if (!el) return;
+    var el = $('s1const');
+    if (!el) return;
+    var D = global.S1DATA;
+    if (!D || !D.CONST || !D.CONST.length) { el.innerHTML = empty('常数未生成'); return; }
     var h = ['<div class="scroll"><table><thead><tr><th style="width:130px">项目</th>' +
       '<th>公式 / 值</th><th style="width:210px">源码位置</th></tr></thead><tbody>'];
     D.CONST.forEach(function (r) {
-      h.push('<tr><td><b>' + r[0] + '</b></td><td style="font-size:12px;line-height:1.7">' + r[1] + '</td>' +
-        '<td style="color:var(--txt-mute);font-size:11px">' + r[2] + '</td></tr>');
+      h.push('<tr><td><b>' + esc(r[0]) + '</b></td><td style="font-size:12px;line-height:1.7">' + r[1] +
+        '</td><td style="color:var(--txt-mute);font-size:11px">' + esc(r[2]) + '</td></tr>');
     });
     h.push('</tbody></table></div>');
     el.innerHTML = h.join('');
   }
 
-  // ── 未解问题 ─────────────────────────────────────────────────────────
-  function renderOpen() {
-    var el = $('s1open'); if (!el) return;
-    var h = [];
-    D.OPEN.forEach(function (o) {
-      h.push('<div class="warn" style="margin-bottom:10px"><b>' + o.t + '</b><br>' + o.d + '</div>');
-    });
-    el.innerHTML = h.join('');
-  }
-
-  // ── 现场逐 tick 仿真 + 逐笔购买日志 ──────────────────────────────────
-  var STAGES = [
-    { k: 's1', label: 'IU11（第 2 次无限）', iu: ['IU11'], ip: 1, ach: 1 },
-    { k: 's2', label: '+IU12', iu: ['IU11', 'IU12'], ip: 2, ach: 1 },
-    { k: 's3', label: '+21,22,31,32,41,42', iu: ['IU11', 'IU12', 'IU21', 'IU22', 'IU31', 'IU32', 'IU41', 'IU42'], ip: 8, ach: 2 },
-    { k: 's4', label: '+13,23,33', iu: ['IU11', 'IU12', 'IU13', 'IU21', 'IU22', 'IU23', 'IU31', 'IU32', 'IU33', 'IU41', 'IU42'], ip: 15, ach: 2 },
-    { k: 's5', label: '+IU14（20 IP）', iu: ['IU11', 'IU12', 'IU13', 'IU21', 'IU22', 'IU23', 'IU31', 'IU32', 'IU33', 'IU41', 'IU42', 'IU14'], ip: 20, ach: 3 },
-    { k: 's6', label: '+IU24（40 IP）', iu: ['IU11', 'IU12', 'IU13', 'IU21', 'IU22', 'IU23', 'IU31', 'IU32', 'IU33', 'IU41', 'IU42', 'IU14', 'IU24'], ip: 40, ach: 3 },
-    { k: 's7', label: '+IU34（80 IP）', iu: ['IU11', 'IU12', 'IU13', 'IU21', 'IU22', 'IU23', 'IU31', 'IU32', 'IU33', 'IU41', 'IU42', 'IU14', 'IU24', 'IU34'], ip: 80, ach: 3 },
-    { k: 's8', label: '+IU44（300 IP）', iu: ['IU11', 'IU12', 'IU13', 'IU21', 'IU22', 'IU23', 'IU31', 'IU32', 'IU33', 'IU41', 'IU42', 'IU14', 'IU24', 'IU34', 'IU43', 'IU44'], ip: 300, ach: 3 },
-    { k: 'c9', label: '★ C9 本体（挑战 9）', iu: ['IU11', 'IU12', 'IU13', 'IU21', 'IU22', 'IU23', 'IU31', 'IU32', 'IU33', 'IU41', 'IU42', 'IU14', 'IU24', 'IU34', 'IU43', 'IU44'], ip: 300, ach: 3, ch: 9 },
-    { k: 'c8', label: 'C8 本体（挑战 8）', iu: ['IU11', 'IU12', 'IU21', 'IU22', 'IU31', 'IU32', 'IU41', 'IU42'], ip: 8, ach: 2, ch: 8 }
-  ];
-  function achFor(lvl) {
-    var S = global.S1SIM;
-    if (lvl === 1) return S.achSet(2, [31, 32, 35, 42, 44, 46, 54]);
-    if (lvl === 2) return S.achSet(4, [54, 61, 66, 68]);
-    return S.achSet(6, [54, 61, 62, 63, 64, 65, 66, 67, 68, 74, 75, 76, 77, 78]);
-  }
-  function runOne(stageKey, dt, wantLog) {
-    var S = global.S1SIM;
-    if (!S) return null;
-    var st = null;
-    for (var i = 0; i < STAGES.length; i++) if (STAGES[i].k === stageKey) st = STAGES[i];
-    if (!st) return null;
-    var set = {}; st.iu.forEach(function (k) { set[k] = true; });
-    var r = S.runInfinity({
-      iuSet: set, challenge: st.ch || 0, infinities: st.ip, ip: st.ip, ipMult: 1,
-      galaxyCap: (st.ch === 8 || st.ch === 10) ? 0 : 'inf',
-      maxSeconds: 3 * 3600, dt: dt, logDetail: wantLog ? 'full' : 'none',
-      achOverride: achFor(st.ach)
-    });
-    return r;
-  }
-  function renderLive() {
-    var el = $('s1live'); if (!el) return;
-    if (!global.S1SIM) {
-      el.innerHTML = '<div class="warn">仿真器脚本未加载（js/model.js + js/s1sim.js）</div>';
-      return;
+  // ── C9 recompute button ───────────────────────────────────────────────
+  function runC9Recompute(btn, out) {
+    if (!SIM || typeof SIM.runInfinity !== 'function') {
+      out.className = 'c9-result'; out.textContent = '未生成：S1SIM 不可用'; return;
     }
-    var h = ['<div class="grid" style="grid-template-columns:1fr 1fr 1fr">' +
-      '<div><label class="sub">配置</label><select id="lv_stage">'];
-    STAGES.forEach(function (s) { h.push('<option value="' + s.k + '">' + s.label + '</option>'); });
-    h.push('</select></div>' +
-      '<div><label class="sub">步长（游戏帧间隔）</label><select id="lv_dt">' +
-      '<option value="0.0333">1/30 秒（游戏默认 33ms）</option>' +
-      '<option value="0.0167">1/60 秒</option>' +
-      '<option value="0.1">0.1 秒（手速慢）</option></select></div>' +
-      '<div><label class="sub">输出</label><button class="btn" id="lv_go">跑一次仿真</button></div>' +
-      '</div><div id="lv_out"></div>');
-    el.innerHTML = h.join('');
-    var go = $('lv_go');
-    if (go) go.addEventListener('click', function () {
-      var key = $('lv_stage').value, dt = parseFloat($('lv_dt').value);
-      var out = $('lv_out');
-      out.innerHTML = '<p class="hint">跑仿真中…（长跑可能要几秒）</p>';
-      setTimeout(function () {
-        var st = null;
-        STAGES.forEach(function (s) { if (s.k === key) st = s; });
-        var r = runOne(key, dt, true);
-        if (!r) { out.innerHTML = '<div class="warn">失败</div>'; return; }
-        var buyArr = [];
-        r.log.forEach(function (l) {
-          buyArr.push('  ' + (l.t).toFixed(1).padStart(7) + ' s  ' + l.text +
-            (l.extra ? '　（' + l.extra.replace(/<[^>]+>/g, '') + '）' : ''));
-        });
-        out.innerHTML =
-          '<div class="out" style="margin-top:14px;line-height:2">' +
-          '<div><span class="k">配置　　</span><b>' + st.label + '</b>　步长 ' + dt.toFixed(4) + ' s</div>' +
-          '<div><span class="k">结果　　</span>' + (r.ok ? '<b style="color:#7ee787">达成 1.797e308 AM</b>' : '<b style="color:#ff9b9b">未达成</b>') +
-          '　用时 <b>' + fmtT(r.time) + '</b>　IP +' + r.ipGained + '</div>' +
-          '<div><span class="k">终点状态</span>提升 ' + r.boosts + ' 次　星系 ' + r.galaxies +
-          ' 个　计数频率 ' + r.ticks + ' 次　献祭 ' + r.sacCount + ' 次</div>' +
-          '<div><span class="k">维度已购</span>[' + r.bought.slice(1).join(', ') + ']</div>' +
-          '</div>' +
-          '<h3 style="font-size:13px;color:var(--gold);margin:18px 0 8px">逐笔购买日志（共 ' + r.log.length + ' 条）</h3>' +
-          '<pre class="logbox">' + (buyArr.join('\n') || '（无）') + '</pre>';
-      }, 30);
-    });
-  }
+    var cfg = FLOW && FLOW.selected && FLOW.selected.c9Config;
+    if (!cfg) { out.className = 'c9-result'; out.textContent = '未生成：selected.c9Config 缺失'; return; }
 
-  // ── 挑战起始时机 ──────────────────────────────────────────────────────
-  function renderTiming() {
-    var el = $('s1timing'); if (!el) return;
-    var h = ['<div class="scroll"><table><thead><tr><th style="width:150px">项目</th>' +
-      '<th>内容</th><th style="width:200px">源码位置</th></tr></thead><tbody>'];
-    (D.TIMING_MECH || []).forEach(function (r) {
-      h.push('<tr><td><b>' + r[0] + '</b></td><td style="font-size:12px;line-height:1.7">' + r[1] + '</td>' +
-        '<td style="color:var(--txt-mute);font-size:11px">' + r[2] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">C9：进挑战前先买几次 ID1？（扫描结果）</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>ID1 已购</th><th>需要的 IP</th>' +
-      '<th>筹备耗时</th><th>C9 耗时</th><th>总耗时</th><th>说明</th></tr></thead><tbody>');
-    (D.TIMING_C9 || []).forEach(function (r) {
-      h.push('<tr' + (r.best ? ' style="background:rgba(126,231,135,.10)"' : '') + '>' +
-        '<td>' + r.id1 + ' 次</td>' +
-        '<td>' + (r.need ? fmtNum(r.need) + ' IP' : '—') + '</td>' +
-        '<td>' + fmtT(r.prep) + '</td>' +
-        '<td>' + (r.chal === null ? '<span style="color:#ff9d9d">未达成</span>' : fmtT(r.chal)) + '</td>' +
-        '<td><b>' + (r.total === null ? '—' : fmtT(r.total)) + '</b></td>' +
-        '<td style="color:var(--txt-dim);font-size:12px">' + r.note + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">其它挑战：立刻进 vs 买 1 次 ID1 再进</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>挑战</th><th>立刻进</th><th>买 1 次 ID1 再进</th>' +
-      '<th>提速</th><th>说明</th></tr></thead><tbody>');
-    (D.TIMING_OTHERS || []).forEach(function (r) {
-      h.push('<tr><td><b>C' + r.ch + '</b></td><td>' + fmtT(r.now) + '</td>' +
-        '<td style="color:#7ee787"><b>' + fmtT(r.withId1) + '</b></td>' +
-        '<td>' + (r.now / r.withId1).toFixed(1) + '×</td>' +
-        '<td style="color:var(--txt-dim);font-size:12px">' + r.note + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">打破无限前：要不要"先多刷几次再进"？（结论：基本不用）</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>挑战</th><th>每次刷无限</th><th>立刻进</th>' +
-      '<th>最优等待</th><th>最优总耗时</th><th>为什么</th></tr></thead><tbody>');
-    (D.TIMING_PRE || []).forEach(function (r) {
-      h.push('<tr><td><b>C' + r.ch + '</b></td><td>' + r.farm + ' 秒</td><td>' + fmtT(r.now) + '</td>' +
-        '<td>' + (r.best === 0 ? '0 次（立刻进）' : r.best + ' 次') + '</td>' +
-        '<td><b>' + fmtT(r.bestTime) + '</b></td>' +
-        '<td style="color:var(--txt-dim);font-size:12px">' + r.why + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    el.innerHTML = h.join('');
-  }
-
-  // ── 现场扫描：挑战起始时机 ────────────────────────────────────────────
-  function renderTimingLive() {
-    var el = $('s1timinglive'); if (!el) return;
-    if (!global.TIMING) {
-      el.innerHTML = '<div class="warn">扫描器未加载（js/timing.js）</div>';
-      return;
-    }
-    el.innerHTML = '<div class="grid" style="grid-template-columns:1fr 1fr 1fr 1fr">' +
-      '<div><label class="sub">挑战</label><select id="tg_ch">' +
-      [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(function (c) {
-        return '<option value="' + c + '"' + (c === 9 ? ' selected' : '') + '>C' + c + '</option>';
-      }).join('') + '</select></div>' +
-      '<div><label class="sub">起点 IP</label><input type="text" id="tg_ip" value="1e7" /></div>' +
-      '<div><label class="sub">最多买几次 ID1</label><input type="number" id="tg_max" value="3" min="0" max="8" /></div>' +
-      '<div><label class="sub">扫描</label><button class="btn" id="tg_go">开始扫描</button></div>' +
-      '</div><div id="tg_out"></div>';
-    var go = $('tg_go');
-    if (!go) return;
-    go.addEventListener('click', function () {
-      var ch = parseInt($('tg_ch').value, 10);
-      var ip0 = parseFloat($('tg_ip').value) || 1e7;
-      var mx = parseInt($('tg_max').value, 10) || 0;
-      var out = $('tg_out');
-      out.innerHTML = '<p class="hint">扫描中…（每个档位都要跑一次挑战仿真）</p>';
-      setTimeout(function () {
-        var ALL = ['IU11','IU12','IU13','IU21','IU22','IU23','IU31','IU32','IU33','IU41','IU42',
-                   'IU14','IU24','IU34','IU43','IU44'];
-        var set = {}; ALL.forEach(function (k) { set[k] = true; });
-        var ach = global.S1SIM.achSet(6, [54,61,62,63,64,65,66,67,68,74,75,76,77,78]);
-        var sw = global.TIMING.sweepPostBreak({
-          iuSet: set, challenge: ch, infinities: 1000, ipStart: ip0, ipMult: 16,
-          ach: ach, minPrep: 0, maxPrep: mx, dt: 1 / 60, maxSeconds: 1800
-        });
-        var rows = sw.rows, best = null;
-        rows.forEach(function (r) { if (r.total !== null && (best === null || r.total < best.total)) best = r; });
-        var h = ['<div class="scroll" style="margin-top:12px"><table><thead><tr>' +
-          '<th>ID1 已购</th><th>需要 IP</th><th>筹备</th><th>C' + ch + ' 耗时</th><th>总耗时</th></tr></thead><tbody>'];
-        rows.forEach(function (r) {
-          h.push('<tr' + (best && r === best ? ' style="background:rgba(126,231,135,.12)"' : '') + '>' +
-            '<td>' + r.prep + ' 次</td><td>' + (r.ipNeed ? fmtNum(r.ipNeed) : '—') + '</td>' +
-            '<td>' + fmtT(r.prepTime) + '</td>' +
-            '<td>' + (r.chalTime === null ? '未达成' : (r.ok ? fmtT(r.chalTime) : fmtT(r.chalTime) + '（超时）')) + '</td>' +
-            '<td><b>' + (r.total === null ? '—' : fmtT(r.total)) + '</b></td></tr>');
-        });
-        h.push('</tbody></table></div>');
-        if (best) {
-          h.push('<div class="ok-note" style="margin-top:12px">★ 最优：先攒到 <b>' + fmtNum(best.ipNeed) +
-            ' IP</b>（筹备 ' + fmtT(best.prepTime) + '）买 <b>' + best.prep + ' 次 ID1</b>，再进 C' + ch +
-            ' → 总耗时 <b>' + fmtT(best.total) + '</b></div>');
+    btn.disabled = true;
+    out.className = 'c9-result';
+    out.textContent = '复算中…';
+    // Defer the (blocking) run so "复算中" paints before it starts.
+    setTimeout(function () {
+      try {
+        var res = SIM.runInfinity(cfg);
+        if (res && res.ok) {
+          out.className = 'c9-result ok';
+          out.textContent = '复算成功：C9 通关用时 ' + fmtHMS(res.time) + '（模型估计，非实测）';
+        } else {
+          out.className = 'c9-result timeout';
+          out.textContent = '复算超时：在设定上限内未通关（模型估计）';
         }
-        out.innerHTML = h.join('');
-      }, 30);
-    });
+      } catch (err) {
+        out.className = 'c9-result timeout';
+        out.textContent = '复算出错：' + (err && err.message ? err.message : err);
+      } finally {
+        btn.disabled = false;
+      }
+    }, 0);
   }
 
-  // ── 手动路线（1 IP 之后头几次大坍缩：还没有自动化）──────────────────────
-  var KIND_LABEL = {
-    start: ['开局', 'tag boost'], dim: ['维度', 'tag tick'], dim10: ['买满10', 'tag galaxy'],
-    tick: ['计数频率', 'tag tick'], boost: ['维度提升', 'tag boost'],
-    galaxy: ['星系', 'tag galaxy'], sac: ['献祭', 'tag sac'], crunch: ['大坍缩', 'tag inf']
-  };
-  var manSel = 0;
-
-  function renderManual() {
-    var el = $('s1manual'); if (!el) return;
-    var runs = D.MANUAL_RUNS || [];
-    var h = [];
-
-    // 机制表
-    h.push('<div class="scroll"><table><thead><tr><th style="width:150px">项目</th>' +
-      '<th>内容</th><th style="width:210px">源码位置</th></tr></thead><tbody>');
-    (D.MANUAL_MECH || []).forEach(function (r) {
-      h.push('<tr><td><b>' + r[0] + '</b></td><td style="font-size:12px;line-height:1.7">' + r[1] + '</td>' +
-        '<td style="color:var(--txt-mute);font-size:11px">' + r[2] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    // 阶段表（同第一阶段格式）
-    var cum = 0;
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">阶段表（手动最优解）</h3>');
-    h.push('<div class="ok-note">三次手动合计 <b>' + fmtT(D.MANUAL_TOTAL) + '</b>' +
-      '（第 2 次 ' + fmtT(runs[0].time) + ' + 第 3 次 ' + fmtT(runs[1].time) +
-      ' + 第 4 次 ' + fmtT(runs[2].time) + '）</div>');
-    h.push('<div class="scroll" style="margin-top:10px"><table><thead><tr>' +
-      '<th>#</th><th>阶段</th><th>已购无限升级</th><th>最优排程</th><th>耗时</th><th>起止</th>' +
-      '</tr></thead><tbody>');
-    runs.forEach(function (r, i) {
-      var st = cum; cum += r.time;
-      h.push('<tr><td class="dim">' + (i + 1) + '</td><td>' + r.label + '</td>' +
-        '<td style="color:#9dcaff;font-size:11.5px">' + r.iu + '</td>' +
-        '<td class="dim" style="font-size:11.5px">' + r.plan + '</td>' +
-        '<td><b>' + fmtT(r.time) + '</b></td>' +
-        '<td class="dim">' + fmtT(st) + ' → ' + fmtT(cum) + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    // 动作明细
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">动作明细（点上面选一次，这里是"什么时机点什么"）</h3>');
-    h.push('<div class="seg" style="margin-bottom:10px">' + runs.map(function (r, i) {
-      return '<button class="seg-btn' + (i === manSel ? ' active' : '') + '" data-mrun="' + i + '">' +
-        r.label + '（' + r.actions.length + ' 个动作）</button>';
-    }).join('') + '</div>');
-    var R = runs[manSel];
-    if (R) {
-      h.push('<p class="hint">' + R.label + '　·　' + R.plan + '　·　用时 <b>' + fmtT(R.time) +
-        '</b>　·　维度提升 ' + R.boosts + ' 次 / 星系 ' + R.galaxies + ' 个 / 献祭 ' + R.sac + ' 次</p>');
-      h.push('<div class="scroll tall"><table><thead><tr><th>#</th><th>时刻</th><th>距上次</th>' +
-        '<th>操作</th><th>说明</th></tr></thead><tbody>');
-      var prev = 0;
-      R.actions.forEach(function (a, i) {
-        var kl = KIND_LABEL[a[3]] || ['', ''];
-        var gap = a[0] - prev; prev = a[0];
-        h.push('<tr><td class="dim">' + (i + 1) + '</td>' +
-          '<td><b>' + fmtT(a[0]) + '</b></td>' +
-          '<td class="dim">' + (i === 0 ? '—' : fmtT(gap)) + '</td>' +
-          '<td><span class="' + kl[1] + '">' + kl[0] + '</span> ' + a[1] + '</td>' +
-          '<td class="dim" style="font-size:11.5px">' + a[2] + '</td></tr>');
-      });
-      h.push('</tbody></table></div>');
-    }
-    el.innerHTML = h.join('');
-    Array.prototype.forEach.call(el.querySelectorAll('[data-mrun]'), function (b) {
-      b.addEventListener('click', function () {
-        manSel = parseInt(b.getAttribute('data-mrun'), 10);
-        renderManual();
-      });
-    });
+  function wireC9() {
+    var btn = $('s1RecomputeC9');
+    var out = $('s1C9Result');
+    if (!btn || !out) return;
+    btn.addEventListener('click', function () { runC9Recompute(btn, out); });
   }
 
-  // ── 逐 tick 分析与机制修正（对照 4 份教程交叉比对）──────────────────────
-  function renderTick() {
-    var el = $('s1tick'); if (!el) return;
-    var h = [];
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:6px 0 8px">三处修正（教程交叉比对后改掉的）</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th style="width:120px">项目</th>' +
-      '<th style="width:150px">我原来的做法</th><th>改正为</th><th style="width:230px">影响</th></tr></thead><tbody>');
-    (D.TICK_FIX || []).forEach(function (r) {
-      h.push('<tr><td><b>' + r[0] + '</b></td><td style="color:#ff9d9d">' + r[1] + '</td>' +
-        '<td>' + r[2] + '</td><td class="dim" style="font-size:11.5px">' + r[3] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">50ms 内部 tick 基准（真实）vs 33ms / 17ms</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>阶段</th><th>dt=50ms（真实）</th>' +
-      '<th>dt=33ms</th><th>dt=17ms</th></tr></thead><tbody>');
-    (D.TICK_BASE || []).forEach(function (r) {
-      h.push('<tr><td>' + r.name + '</td><td><b>' + fmtT(r.t50) + '</b></td>' +
-        '<td>' + fmtT(r.t33) + '</td><td>' + fmtT(r.t17) + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">C8 修正结果（提升上限 5 + 献祭阈值扫描）</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>状态</th><th>普通无限</th>' +
-      '<th>C8 献祭阈值</th><th>C8 用时</th><th>献祭次数</th><th>结束献祭倍率</th></tr></thead><tbody>');
-    (D.C8_FIX || []).forEach(function (g) {
-      g.rows.forEach(function (r, i) {
-        h.push('<tr>' + (i === 0 ? '<td rowspan="' + g.rows.length + '"><b>' + g.st +
-          '</b><br><span class="dim" style="font-size:11.5px">普通无限 ' + fmtT(g.normal) + '</span></td>' : '') +
-          '<td>' + (i === 0 ? fmtT(g.normal) : '') + '</td>' +
-          '<td>nb ≥ ' + r[0] + '</td><td><b>' + fmtT(r[1]) + '</b></td>' +
-          '<td>' + r[2] + '</td><td style="color:var(--gold)">' + r[3] + '</td></tr>');
-      });
-    });
-    h.push('</tbody></table></div>');
-    h.push('<div class="warn" style="margin-top:10px"><b>结论（诚实版）：</b>' +
-      '修正后 C8 <b>可以打通了</b>（提升上限 5、献祭阈值 ≥8），而且结束时的献祭总倍率落在 <b>1.2e40</b>，' +
-      '与攻略「献祭倍数到约 1e40 时停手」完全吻合 —— 机制完全对上了。' +
-      '但在我的仿真里 C8 仍然比普通无限慢约 3~4 倍（43.7 分 vs 12.7 分）。' +
-      '所以「挑战 8 比正常无限快」这句攻略断言，我<b>能把机制全部对齐，但仍无法复现「更快」</b>。' +
-      '剩下的可能差异：攻略语境是"第一次无限之后"（那时普通无限要 7 小时），以及攻略靠<b>自动重试挑战</b>连续刷的吞吐量而非单跑时长。</div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">逐 tick 轨迹（第 4 次大坍缩，每 30 秒采样）</h3>');
-    h.push('<p class="hint">看到"d1/d4/d8 归零、AM 掉回 5e5"就是一次献祭或维度提升；' +
-      '倍率与产量每 30 秒跨好几个数量级，这就是"按住 Max"的级联效果。</p>');
-    h.push('<div class="scroll tall"><table><thead><tr><th>t (秒)</th><th>AM</th><th>d1</th>' +
-      '<th>d4</th><th>d8</th><th>计数频率</th><th>提升</th><th>星系</th><th>d1 倍率</th><th>d1 产量/s</th>' +
-      '</tr></thead><tbody>');
-    (D.TRACE || []).forEach(function (r) {
-      h.push('<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] +
-        '</td><td>' + r[4] + '</td><td>' + r[5] + '</td><td>' + r[6] + '</td><td>' + r[7] +
-        '</td><td>' + r[8] + '</td><td>' + r[9] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">教程交叉比对：之前遗漏的条目（已补进操作表）</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th style="width:250px">条目</th><th>内容</th>' +
-      '<th style="width:130px">出处</th></tr></thead><tbody>');
-    (D.TUT_MISSED || []).forEach(function (r) {
-      h.push('<tr><td><b>' + r[0] + '</b></td><td style="font-size:12px;line-height:1.7">' + r[1] + '</td>' +
-        '<td class="dim" style="font-size:11.5px">' + r[2] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    el.innerHTML = h.join('');
-  }
-
-  // ── 成就清单（源码自动提取 + 模型收录情况）────────────────────────────
-  function renderAch() {
-    var el = $('s1ach'); if (!el) return;
-    var rows = D.ACH_LIST || [];
-    var mod = rows.filter(function (r) { return r[4]; }).length;
-    var h = ['<div class="ok-note">从源码提取到 <b>' + rows.length + '</b> 条有效果或值得记录的成就，' +
-      '其中本工具模型已收录 <b>' + mod + '</b> 条（最后一列的 ✓）。' +
-      '未收录的多为"指数/次数/长挂机"型加成，或属于现实之后的阶段。</div>',
-      '<div class="scroll tall" style="margin-top:10px"><table><thead><tr>' +
-      '<th>id</th><th>名称</th><th>效果值</th><th>作用对象</th><th>模型</th><th>原文</th>' +
-      '</tr></thead><tbody>'];
-    rows.forEach(function (r) {
-      h.push('<tr><td><b>r' + r[0] + '</b></td><td>' + r[1] + '</td>' +
-        '<td style="color:var(--gold)">' + r[2] + '</td><td>' + r[3] + '</td>' +
-        '<td>' + (r[4] ? '<span style="color:#7ee787">✓</span>' : '<span style="color:#ff9d9d">—</span>') + '</td>' +
-        '<td class="dim" style="font-size:11px">' + r[5] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    el.innerHTML = h.join('');
-  }
-
-  // ── S1 阶段 A 时间线（C8 vs 普通无限）─────────────────────────────────
-  function renderPhaseA() {
-    var el = $('s1phasea'); if (!el) return;
-    var P = D.PHASE_A; if (!P) return;
-    var h = ['<div class="warn"><b>C8 结案：</b>resetChallengeStuff() 明确把 <code>player.chall8TotalSacrifice</code> 重置为 1，' +
-      '而它被 softReset（每次维度提升/大坍缩）与 eternity 调用 —— 所以 <b>C8 每次都得从倍率 1 重新开始，没有加速链</b>。' +
-      '下面按"每跑独立"算到 20 IP。</div>',
-      '<div class="scroll" style="margin-top:10px"><table><thead><tr><th>阶段</th><th>跑数</th>' +
-      '<th>普通无限（每跑）</th><th>C8（每跑）</th><th>小计·普通</th><th>小计·C8</th></tr></thead><tbody>'];
-    P.rows.forEach(function (r) {
-      h.push('<tr><td>' + r.lab + '</td><td>' + r.n + '</td>' +
-        '<td>' + fmtT(r.normal) + '</td><td>' + fmtT(r.c8) + '</td>' +
-        '<td>' + fmtT(r.normal * r.n) + '</td><td>' + fmtT(r.c8 * r.n) + '</td></tr>');
-    });
-    h.push('<tr style="background:rgba(126,231,135,.10)"><td colspan="4"><b>合计到 20 IP（共 20 跑）</b></td>' +
-      '<td><b>' + fmtT(P.totalNormal) + '</b></td><td><b>' + fmtT(P.totalC8) + '</b></td></tr>');
-    h.push('</tbody></table></div>');
-    h.push('<div class="ok-note" style="margin-top:12px">★ 结论：<b>普通无限农场 11.80 小时</b>，C8 农场 34.27 小时 —— ' +
-      '普通无限快 <b>1.90 倍</b>。所以攻略那句"不断完成 C8 快速获得大量 IP"在当前版本下不成立' +
-      '（教程本身也提到过平衡改动：「安卓版早已移除自动购买器的优先级…」）。S1 阶段 A 的时间线就按普通无限算。</div>');
-    el.innerHTML = h.join('');
-  }
-
-  // ── S1 压缩优化（本轮：真实瓶颈 + 拟合后的最优顺序）────────────────────
-  function renderOpt() {
-    var el = $('s1opt'); if (!el) return;
-    var O = global.S1OPT; if (!O) return;
-    var h = [];
-
-    h.push('<div class="ok-note"><b>本轮的三个源码级发现：</b><br>' +
-      '① <b>打破无限的解锁条件不是"买满 16 个无限升级"，而是把大坍缩自动购买器的间隔升满</b>：' +
-      '<code>BreakInfinityButton.isUnlocked = Autobuyer.bigCrunch.hasMaxedInterval</code>；' +
-      '而这个自动购买器来自 <b>C12 的奖励</b>（<code>canBeUpgraded = NormalChallenge(12).isCompleted</code>）。<br>' +
-      '② 间隔升级成本从 1 起每次 ×2、间隔每次 ×0.6（下限 100）⇒ 150000 → 100 需 15 次 = ' +
-      '<b>32767 IP</b> —— 攻略写的「3e4 IP 进入 C12」正是这个数。<br>' +
-      '③ 未打破无限时 <code>IP = floor(308 / div × totalIPMult)</code>，div 恒为 308 ⇒ <b>每次固定 1×IPmult</b>。</div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:22px 0 8px">结果对照：压缩了多少</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>方案</th><th>Web/Steam</th><th>安卓</th>' +
-      '<th>相对攻略</th></tr></thead><tbody>');
-    O.RESULT.forEach(function (r) {
-      var base = O.RESULT[0];
-      h.push('<tr' + (r.best ? ' style="background:rgba(126,231,135,.12)"' : '') + '>' +
-        '<td><b>' + r.name + '</b></td><td>' + fmtT(r.pc) + '</td><td>' + fmtT(r.and) + '</td>' +
-        '<td>' + (r.pc <= base.pc ? '省 ' + fmtT(base.pc - r.pc) : '慢 ' + fmtT(r.pc - base.pc)) + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    h.push('<p class="hint">注：这三个数<b>都比我上一轮给的 43.5 小时低得多</b> —— 因为上一轮我用的是稀疏打表，中间状态被当成"最慢那一档"了；' +
-      '这一轮把每个无限升级的边际提速逐个测出来再拟合，才是真实量级。</p>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">★ 压缩后的最优采购顺序（买得起就买）</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>#</th><th>升级</th><th>成本</th><th>效果</th>' +
-      '<th>边际提速（Web / 安卓）</th></tr></thead><tbody>');
-    var marg = {};
-    O.MARGINAL.forEach(function (m) { marg[m[0]] = m; });
-    O.BEST_ORDER.forEach(function (r, i) {
-      var m = marg[r[0]];
-      h.push('<tr><td>' + (i + 1) + '</td><td><b>' + r[0] + '</b></td><td>' + r[1] + ' IP</td>' +
-        '<td>' + r[2] + '</td>' +
-        '<td style="color:var(--gold)">' + (m ? '×' + m[2].toFixed(2) + ' / ×' + m[3].toFixed(2) : '—') + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    h.push('<div class="ok-note" style="margin-top:12px">★ 与攻略最大的差异：' +
-      '<b>攻略把 skipReset 三件（IU14/24/34，共 140 IP）排在第 12~14 位之前</b>，' +
-      '而按边际提速它们只有 ×1.05~1.08，却要吃 20/40/80 次无限。' +
-      '在"每次只赚 1 IP"的阶段，<b>先花 1 IP 买 ×7~×10 的那些（IU21/IU32/IU12/IU11/IU22/IU31）才是对的</b>。</div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">边际提速全表（log 空间拟合）</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>升级</th><th>成本</th><th>Web/Steam</th>' +
-      '<th>安卓</th><th>说明</th></tr></thead><tbody>');
-    O.MARGINAL.forEach(function (m) {
-      h.push('<tr><td><b>' + m[0] + '</b></td><td>' + m[1] + ' IP</td>' +
-        '<td>×' + m[2].toFixed(2) + '</td><td>×' + m[3].toFixed(2) + '</td>' +
-        '<td class="dim" style="font-size:11.5px">' + m[4] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">时间结构（Web/Steam 档，共 26.6 小时 / 4081 次无限）</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>阶段</th><th>累计</th><th>说明</th></tr></thead><tbody>');
-    O.BREAKDOWN.forEach(function (b) {
-      h.push('<tr><td>' + b[0] + '</td><td><b>' + b[1] + '</b></td>' +
-        '<td class="dim" style="font-size:11.5px">' + b[2] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">尝试过的捷径：4 条里 3 条被否</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>捷径</th><th>结论</th><th>依据</th></tr></thead><tbody>');
-    var tagMap = { excluded: '<span style="color:#ff9d9d">走不通</span>',
-      'no-gain': '<span style="color:#ffd700">没收益</span>',
-      reordered: '<span style="color:#7ee787">已改顺序</span>' };
-    O.EXCLUDED.forEach(function (e) {
-      h.push('<tr><td><b>' + e[0] + '</b></td><td>' + (tagMap[e[1]] || e[1]) + '</td>' +
-        '<td style="font-size:12px;line-height:1.7">' + e[2] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    el.innerHTML = h.join('');
-  }
-
-  // ── 第三轮压缩：两个新杠杆 ────────────────────────────────────────────
-  function renderLever() {
-    var el = $('s1lever'); if (!el) return;
-    var O = global.S1OPT; if (!O) return;
-    var h = [];
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:6px 0 8px">杠杆 A：高配状态下"少买维度提升"</h3>');
-    h.push('<p class="hint">维度提升会把 1~8 维全部清空重来。在有了 skipReset（重置后保底 4 次提升）之后，' +
-      '"再买提升"换来的 ×2.5 倍率<b>不如"不打断维度链"值钱</b>。逐前缀扫描 boostCap 的结果：</p>');
-    h.push('<div class="scroll"><table><thead><tr><th>阶段</th><th>该怎么办</th><th>为什么 / 量级</th></tr></thead><tbody>');
-    O.LEVER_BOOSTCAP.forEach(function (r) {
-      h.push('<tr><td><b>' + r[0] + '</b></td><td>' + r[1] + '</td>' +
-        '<td class="dim" style="font-size:11.5px">' + r[2] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    h.push('<div class="ok-note" style="margin-top:10px">这一条<b>独立验证了攻略原文</b>：' +
-      '「300IP 购买无限升级44…现在不再需要维度提升，只需要按住最大和点击大坍缩即可」——' +
-      '我的仿真给出的数字是：满配下停在第 6 次提升 = <b>5.9 秒</b>，不限次数 = <b>18.5 秒（×3.14）</b>。</div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">杠杆 B：更新率（dt）—— 短跑的隐藏天花板</h3>');
-    h.push('<p class="hint">「按住 Max」是按<b>帧</b>触发的，所以帧率直接决定级联次数。' +
-      '注意：<b>只影响短跑</b>——4.98 小时那种长跑对帧率几乎无感（1.03×），而 5.9 秒的满配跑能快 2.43 倍。</p>');
-    h.push('<div class="scroll"><table><thead><tr><th>更新率</th><th>满配单次跑（Web）</th>' +
-      '<th>满配单次跑（安卓）</th><th>说明</th></tr></thead><tbody>');
-    O.LEVER_DT.forEach(function (r) {
-      h.push('<tr><td>' + r[0] + ' s</td><td><b>' + r[1] + ' 秒</b></td><td>' + r[2] + ' 秒</td>' +
-        '<td class="dim">' + r[3] + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    h.push('<div class="scroll" style="margin-top:10px"><table><thead><tr><th>已购 IU 数</th>' +
-      O.DT_FACTOR.map(function (r) { return '<th>' + r.n + '</th>'; }).join('') + '</tr></thead><tbody><tr>' +
-      '<td>dt 0.011 相对 0.033 的加速比</td>' +
-      O.DT_FACTOR.map(function (r) { return '<td>×' + r.factor.toFixed(2) + '</td>'; }).join('') +
-      '</tr></tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">★ 最终结果：三轮杠杆叠加</h3>');
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">boostCap 细扫（第 5 次在哪里最优是逐阶段变的）</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>已购 IU</th><th>最优停在第几次</th>' +
-      '<th>各档耗时（秒，Web）</th></tr></thead><tbody>');
-    O.BOOSTCAP_SWEEP.forEach(function (r) {
-      h.push('<tr><td>' + r.n + '</td><td><b>' + r.best + '</b></td>' +
-        '<td class="dim" style="font-size:11px">' + r.times + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    
-    h.push('<div class="scroll"><table><thead><tr><th>方案</th><th>Web/Steam</th><th>安卓</th>' +
-      '<th>相对①</th></tr></thead><tbody>');
-    var base = O.FINAL[0];
-    O.FINAL.forEach(function (r) {
-      h.push('<tr' + (r.best ? ' style="background:rgba(126,231,135,.12)"' : '') + '>' +
-        '<td><b>' + r.name + '</b></td><td>' + fmtT(r.pc) + '</td><td>' + fmtT(r.and) + '</td>' +
-        '<td>' + (r.pc <= base.pc ? '省 ' + fmtT(base.pc - r.pc) : '—') + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    h.push('<div class="ok-note" style="margin-top:12px"><b>总压缩 5.28×（Web）/ 4.64×（安卓）</b>：' +
-      '17.21 小时 → <b>3.26 小时</b>；安卓 10.12 小时 → <b>2.18 小时</b>。<br>' + O.FINAL_NOTE + '</div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">前缀表 v2（boostCap 取优后，单次无限耗时）</h3>');
-    h.push('<div class="scroll"><table><thead><tr><th>#IU</th><th>新增</th><th>Web/Steam</th>' +
-      '<th>安卓</th></tr></thead><tbody>');
-    O.PREFIX2.forEach(function (r) {
-      h.push('<tr><td>' + r.n + '</td><td>' + r.added + '</td><td><b>' + fmtT(r.pc) + '</b></td>' +
-        '<td>' + fmtT(r.and) + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">顺带否掉的一条思路：靠挑战换成就行</h3>');
-    h.push('<p class="hint">成就的总倍率是 1.03^个数 × 1.25^行数。挑战能一下子补几行，听起来能摊薄后续几千次跑。实测（16 IU 满配）：</p>');
-    h.push('<div class="scroll"><table><thead><tr><th>成就行数</th><th>个数</th>' +
-      '<th>单次跑（Web）</th><th>单次跑（安卓）</th></tr></thead><tbody>');
-    O.ACH_ROWS.forEach(function (r) {
-      h.push('<tr><td>' + r.rows + ' 行</td><td>' + r.n + '</td><td>' + r.pc + ' 秒</td>' +
-        '<td>' + r.and + ' 秒</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    h.push('<div class="warn" style="margin-top:10px">从 2 行加到 6 行只快 <b>1.33×</b>（24.7s → 18.5s），' +
-      '而挑战本身要花 21.8~105.6 秒（普通无限只要 19 秒）。把挑战算进去，总时长从 10.15h 变成 10.19h —— ' +
-      '<b>不划算</b>。原因：时间对产能是<b>对数敏感</b>的，成就倍率再高也压不动多少。</div>');
-    el.innerHTML = h.join('');
-  }
-
-  // ── v7：全流程极限时间 ──────────────────────────────────────────────────
-  function renderFullChain() {
-    var el = $('s1fullchain'); if (!el) return;
-    var O = global.S1OPT; if (!O || !O.FULL_CHAIN) return;
-    var h = [];
-    h.push('<div class="ok-note"><b>全流程极限时间（1 IP → 通关 C9）</b><br>' +
-      '尾段 = 破无限后刷到 1e8 IP（IPMult ×16 后约 4 分钟）→ 买 ID1 → 进 C9（5.7 分钟）。' +
-      '瓶颈仍然是 32767 IP 的大坍缩自动购买器间隔梯子 —— 尾段几乎不占时间。</div>');
-    h.push('<div class="scroll" style="margin-top:12px"><table><thead><tr>' +
-      '<th>阶段</th><th>Web/Steam<br>30fps / 90fps</th><th>安卓<br>30fps / 90fps</th>' +
-      '<th>说明</th></tr></thead><tbody>');
-    O.FULL_CHAIN.forEach(function (r) {
-      h.push('<tr><td><b>' + r.phase + '</b></td>' +
-        '<td>' + fmtT(r.pcStd) + ' / ' + fmtT(r.pcHi) + '</td>' +
-        '<td>' + fmtT(r.andStd) + ' / ' + fmtT(r.andHi) + '</td>' +
-        '<td class="dim" style="font-size:11.5px">' + r.note + '</td></tr>');
-    });
-    h.push('<tr style="background:rgba(126,231,135,.12)"><td><b>★ 全流程</b></td>' +
-      '<td><b>' + fmtT(O.FULL_TOTAL.pcStd) + ' / ' + fmtT(O.FULL_TOTAL.pcHi) + '</b></td>' +
-      '<td><b>' + fmtT(O.FULL_TOTAL.andStd) + ' / ' + fmtT(O.FULL_TOTAL.andHi) + '</b></td>' +
-      '<td class="dim">4081 次无限 + 尾段</td></tr>');
-    h.push('</tbody></table></div>');
-
-    h.push('<h3 style="font-size:13px;color:var(--gold);margin:24px 0 8px">逐步极限时间表（安卓・90fps 档）</h3>');
-    h.push('<div class="scroll tall"><table><thead><tr><th>#</th><th>阶段</th><th>耗时</th>' +
-      '<th>累计</th></tr></thead><tbody>');
-    O.FULL_STEPS.forEach(function (r, i) {
-      h.push('<tr><td>' + (i + 1) + '</td><td>' + r.act + '</td>' +
-        '<td>' + fmtT(r.dt) + '</td><td><b>' + fmtT(r.cum) + '</b></td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    h.push('<div class="warn" style="margin-top:12px">注意：<b>这是极限（理想化）值</b>。' +
-      '90fps 只有在高刷新率屏幕 + 按住 Max 时才可能达到；30fps 是游戏默认。' +
-      '实际会在两者之间。<b>跑数恒为 4081</b>（瓶颈 32767 IP 的固定成本），所以压缩只能从"单次无限耗时"下手。</div>');
-    el.innerHTML = h.join('');
-  }
-
+  // ── boot ──────────────────────────────────────────────────────────────
   function boot() {
-    renderSteps(); renderFlow(); renderIU(); renderLadder(); renderTimeline(); renderPhaseA(); renderOpt(); renderLever(); renderFullChain();
-    renderConst(); renderOpen(); renderLive();
-    renderTiming(); renderTimingLive(); renderManual(); renderTick(); renderAch();
+    renderVersion();
+    renderAssumptions();
+    renderComparison();
+    renderCandidates();
+    renderSelectedHeader();
+    renderFlow();
+    wireFilter();
+    renderIU();
+    renderSensitivity();
+    renderConst();
+    wireC9();
   }
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })(typeof window !== 'undefined' ? window : globalThis);

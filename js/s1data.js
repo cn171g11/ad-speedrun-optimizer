@@ -93,7 +93,7 @@
       why: '★ 攻略原文"献祭倍数到约 1e40 时停手"。这是关键：继续献祭会不断清空维度链，永远堆不到 1e797e308。<b>本仿真复现了这个死循环</b>：不停手时 3 小时只能到 1.5e24 倍，维度始终是 0' },
     { g: 'A', n: 6, act: '等到 1.797e308 AM → <b>大坍缩</b>',
       buy: '大坍缩（获得 1 IP）', cost: '—',
-      why: '封顶时 IP = floor(1.7817 × IP倍率)。IP 倍率还是 1，所以每次就是 1 IP' },
+      why: '未打破无限时 IP = floor(IP倍率)。IP 倍率为 1 时每次获得 1 IP' },
     { g: 'A', n: 7, act: '买 <b>IU12</b>（1 IP）',
       buy: '第 1 行第 2 列：买十倍率 2 → 2.2', cost: '1 IP',
       why: '攻略原文"然后购买无限升级12（第1行第2列）"。买满 10 个是前期最大的倍率来源' },
@@ -355,8 +355,8 @@
 
   // ── 关键常数（全部来自源码）───────────────────────────────────────────
   var CONST = [
-    ['IP 收益', 'IP = floor( IPmult × 10^(log10(maxAM)/308 − 0.75) )', 'big-crunch / infinity-points'],
-    ['封顶时的 IP', 'maxAM = 1.797e308 → floor(1.7817) = <b>1</b> × IPmult', '未打破无限时每次大坍缩只给 1×IPmult'],
+    ['IP 收益（prebreak）', 'IP = floor(IPmult)，不使用打破无限后的指数公式', 'game.js: gainedInfinityPoints'],
+    ['打破无限后的 IP', 'floor(10^(log10(maxAM)/308 - 0.75) × IPmult)；不适用于本页直接 C9 路线', 'game.js: gainedInfinityPoints'],
     ['维度成本', 'base × (costMult)^(floor(bought/10) + costBumps)', 'antimatter-dimension.js'],
     ['维度基础价', '10 / 100 / 1e4 / 1e6 / 1e9 / 1e13 / 1e18 / 1e24（涨价 1e3…1e15）', '同上'],
     ['计数频率', '成本 1000×10^n；tps = (1/interval)^n × 成就', 'tickspeed.js'],

@@ -3,162 +3,84 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>② S1 · 1 IP → 通关 C9 | AD 速通优化器</title>
+<title>② S1 · 1 IP → 通关 C9 | 工作台</title>
 <link rel="stylesheet" href="style.css" />
-  <script src="js/zh_en.js"></script>
-  <script src="js/i18n.js"></script>
+<link rel="stylesheet" href="s1.css" />
 </head>
 <body>
-<div class="bg-orbs"><i></i><i></i><i></i></div>
 <header class="topbar glass">
   <div class="brand">
     <span class="logo">S1</span>
     <div>
-      <h1>S1 段 · 1 IP → 通关 C9</h1>
-      <p>官方速通里程碑 #4 Tickspeed Challenge　·　分步操作 + 逐笔购买 + 可现场仿真</p>
+      <h1>S1 段 · 1 IP → 通关 C9 · 工作台</h1>
+      <p>模型估计与扫描结果（非实测秒级精度）</p>
     </div>
   </div>
 </header>
 <main>
   <nav class="subnav glass" id="subnav"></nav>
-  <div id="pfNote"><div class="hint" style="font-size:12px;color:var(--txt-mute)">⚠️ 本站所有时间数字默认是 <b>Web/Steam 档</b>（PC、无广告奖励）；安卓档的差异与对应数字见 <a href="./platform.html">平台差异页</a>。</div></div>
 
-  <div class="card glass wide">
-    <h2>这一段在干什么（一句话）</h2>
-    <p class="hint">你手上有 <b>1 IP</b>，目标是<b>通关 C9</b>。中间没有任何"捷径"：<b>每一次大坍缩只给 1 × IP倍率 的 IP</b>
-      （因为封顶时 IP = floor(1.7817)），所以整段就是一个循环 —— <b>刷无限拿 IP → 买无限升级 → 单次无限变快 → 更快地拿 IP</b>。
-      核心指标只有一个：<b>单次无限耗时</b>。它每掉一档，刷 IP 速率就上一个数量级。<br><b>另外一条同样重要的规则：挑战不要在解锁那一刻就打</b> —— 见下方「挑战起始时机」，先把 IP 刷到买得起无限维度（ID），再进挑战，总耗时反而更短。</p>
-    <div class="ok-note" style="margin-top:12px">
-      <b>最重要的隐藏门槛（源码级）</b>：「IP 翻倍」和「离线 IP」两个升级的解锁条件是
-      <code>Achievement(41) = 买满 16 个无限升级</code>。也就是说 —— <b>在买满 16 个无限升级之前，你每次无限都只能拿到 1 IP</b>；
-      买满之后，10 IP → ×2、100 → ×4、1e3 → ×8、1e4 → ×16，收益才开始指数增长。
-      这解释了攻略为什么先咬牙买 20/40/80/300 IP 的四个 skipReset，而不是先买那个只要 10 IP 的翻倍。
+  <div id="s1Version"></div>
+
+  <!-- 首屏优先：总耗时 + 操作表 -->
+  <section class="s1-block">
+    <h2>操作表 · <span id="s1SelectedName"></span></h2>
+    <p class="s1-meta" id="s1SelectedMeta"></p>
+    <div class="runbtns" style="margin-bottom:12px">
+      <label class="s1-label" for="s1FlowFilter">筛选操作表</label>
+      <input id="s1FlowFilter" class="s1-filter" type="text" placeholder="操作流程 / 购买项目 / 数量" />
     </div>
-  </div>
+    <div id="s1Flow"></div>
+  </section>
 
-  <div class="card glass wide">
-    <h2>分步操作表（36 步 · 每步给出"买什么"）</h2>
-    <div id="s1steps"></div>
-  </div>
+  <!-- 候选路线：默认折叠 -->
+  <details class="s1-block">
+    <summary class="s1-summary">候选路线（90 条 · 含未完成的超时路线）</summary>
+    <div id="s1Candidates"></div>
+  </details>
 
-  <div class="card glass wide">
-    <h2>★ 完整操作表（压缩后 · 同第一阶段格式：操作流程 / 购买项目 / 数量 / 等待的时间 / 总计的时间）</h2>
-    <div id="s1flow"></div>
-  </div>
+  <section class="s1-block">
+    <h2>说明</h2>
+    <p class="s1-disclaimer">本工作台所有时间为 <b>模型估计</b>，非实测秒级精度；路线为<b>扫描范围内最短</b>，<b>非全局最优</b>。「未验证」路线不参与排序。</p>
+  </section>
 
-  <div class="card glass wide">
-    <h2>单次无限耗时阶梯：逐 tick 仿真 vs 攻略实测</h2>
-    <p class="hint">左边两列是本工具<b>逐 tick 算出来的</b>（同一套源码公式，只是购买节奏不同：
-      dt=1/30 秒 = 游戏默认 33ms 帧间隔，dt=1/60 秒 = 60fps）。最右是攻略作者肉眼计的实测值。
-      <b>攻略的数值恰好夹在两种帧率之间</b> —— 这不是巧合，因为"按住最大"能触发的购买级联次数直接由帧率决定。</p>
-    <div id="s1ladder"></div>
-  </div>
+  <section class="s1-block">
+    <h2>假设</h2>
+    <div id="s1Assumptions"></div>
+  </section>
 
-  <div class="card glass wide">
-    <h2>★ 现场跑仿真：看"这一次无限里到底买了什么"</h2>
-    <p class="hint">下面这一块是<b>真的在跑逐 tick 仿真</b>（js/model.js + js/s1sim.js 直接加载进页面）。
-      选一个配置、选一个步长，点按钮，就能看到这一次无限从开局到 1.797e308 AM 的<b>每一笔购买</b>：
-      第几秒买了第几个维度、第几次维度提升、第几个星系、第几次献祭。<b>这就是"精确到每一步买什么"。</b></p>
-    <div id="s1live"></div>
-    <p class="hint" style="margin-top:14px">说明：日志里"首次买入第 k 维度（买 n 个）"表示这一帧内买满可负担的数量（等价于按住「最大」）；
-      "第 k 次维度提升"给出当时的 AM 与需求；C9/C8 需要手动逐档买，页面里的策略是"从高维往低维买满"。</p>
-  </div>
+  <section class="s1-block">
+    <h2>路线对比</h2>
+    <div id="s1Comparison"></div>
+  </section>
 
-  <div class="card glass wide">
-    <h2>★ S1-M 手动路线：1 IP 之后头几次大坍缩怎么点（还没有自动化）</h2>
-    <p class="hint">有了 IU11/IU12 之后，第一阶段的流程不能照搬了 —— 倍率来源变了，
-      <b>买满 10 个的倍率从 ×2 变成 ×2.2</b>，最优的"提升→星系"节奏也随之改变。
-      更重要的是：这几跑<b>纯手动反而比开自动购买器快</b>。<br>
-      源码事实：维度自动购买器默认间隔是 <b>500~1200 毫秒</b>（第 1 维 500ms、第 8 维 1200ms），
-      而 PC 按住「Max」是<b>按帧</b>购买（33ms）——快 15~36 倍；买齐 8 个自动购买器还要花
-      <b>1e40 ~ 1e110 反物质</b>，并且只有通关 C1~C8 之后它们才变成"可升级"。
-      所以头几次大坍缩的最优解就是：<b>按住 Max + 手动到点按提升/星系/献祭</b>。</p>
-    <div id="s1manual"></div>
-  </div>
+  <section class="s1-block">
+    <h2>复算 C9</h2>
+    <p class="hint">点击下方按钮现场复算通关 C9 的耗时，仅报告成功或超时。</p>
+    <div class="runbtns">
+      <button id="s1RecomputeC9" class="btn" type="button">复算 C9</button>
+    </div>
+    <div id="s1C9Result" class="c9-result"></div>
+  </section>
 
-  <div class="card glass wide">
-    <h2>★ S1-T 逐 tick 分析与机制修正（对照 4 份教程交叉比对）</h2>
-    <p class="hint">这一节是把游戏<b>内部 tick 基准</b>、<b>快捷键/卡键</b>、<b>C8 的正确打法</b>、
-      <b>被遗漏的条目</b>全部对齐后的结果。四份教程：
-      《反物质维度安卓通关攻略》《新人必看攻略·首次现实前》《现实更新攻略·第六版》《Cel-7 永恒部分全解》。</p>
-    <div id="s1tick"></div>
-  </div>
+  <section class="s1-block">
+    <h2>无限升级网格</h2>
+    <div id="s1IU"></div>
+  </section>
 
-  <div class="card glass wide">
-    <h2>★ S1-Opt 压缩优化：真实瓶颈、拟合提速、最优采购顺序</h2>
-    <p class="hint">这一节回答"还能不能更快"。核心是先把<b>真正的瓶颈</b>找出来（不是 C9，不是挑战），
-      再给每个无限升级测出<b>边际提速</b>，最后搜采购顺序。</p>
-    <div id="s1opt"></div>
-  </div>
-
-  <div class="card glass wide">
-    <h2>★ S1 全流程极限时间（1 IP → 通关 C9）</h2>
-    <p class="hint">把尾段（破无限 → ID1 → C9）也算进来，给出从 1 IP 到通关 C9 的极限总时长。</p>
-    <div id="s1fullchain"></div>
-  </div>
-
-  <div class="card glass wide">
-    <h2>★ S1-Lever 第三轮压缩：少买提升 + 高刷新率（总压缩 3.07×）</h2>
-    <p class="hint">上一轮压到 10.1 小时（Web）。这一轮又找到两个杠杆，把 4081 次无限的单次耗时从 18.5 秒压到 5.9 秒。</p>
-    <div id="s1lever"></div>
-  </div>
-
-  <div class="card glass wide">
-    <h2>阶段 A 时间线：C8 农场 vs 普通无限农场（1 IP → 20 IP）</h2>
-    <p class="hint">攻略说"第一次无限之后不断完成 C8 快速获得大量 IP"。我把两种农场各跑了 20 次逐跑对比
-      —— 结论与攻略相反，原因写在表上方。</p>
-    <div id="s1phasea"></div>
-  </div>
-
-  <div class="card glass wide">
-    <h2>成就清单（源码自动提取 · 标注模型是否收录）</h2>
-    <p class="hint">成就的总倍率 = 1.03^成就数 × 1.25^整行数。下面这张表是把源码里每条成就的
-      <b>效果值</b>与<b>作用对象</b>自动抽出来的结果，最后一列标出本工具模型是否已收录
-      —— 这样你能一眼看出哪些加成被算进去了、哪些没有。</p>
-    <div id="s1ach"></div>
-  </div>
-
-  <div class="card glass wide">
-    <h2>★ 挑战起始时机：为什么"不能一解锁就进"</h2>
-    <p class="hint">你提到的那点正是这一段的隐藏杠杆：<b>进挑战不会丢掉你已经买的无限维度</b>。
-      源码里进入挑战 = 一次强制大坍缩，它会清掉反物质 / 8 个反物质维度 / 计数频率 / 维度提升 / 星系，
-      连<b>无限之力都归 0</b> —— 但 <b>每个 ID 的购买次数永久保留</b>，ID 数量只是回到
-      <code>baseAmount = 10 × 已购次数</code>。而 ID1 的倍率是 <b>50^已购次数</b>，
-      无限之力又给全部反物质维度 <b>×IPower^7</b>。所以"先攒钱买 ID，再进挑战"能把挑战时长压掉一到两个数量级。</p>
-    <div id="s1timing"></div>
-    <h3 style="font-size:13px;color:var(--gold);margin:26px 0 8px">现场扫描：输入起点 IP，扫出最优进挑战时机</h3>
-    <p class="hint">下面这一块是真的在跑：每个档位都会完整仿真一次挑战，算出"筹备耗时 + 挑战耗时"的极小值。</p>
-    <div id="s1timinglive"></div>
-  </div>
-
-  <div class="card glass wide">
-    <h2>无限升级清单（真实 4×4 网格，成本来自源码）</h2>
-    <p class="hint">编号约定 <code>IU&lt;行&gt;&lt;列&gt;</code>，与攻略正文的「第 x 行第 y 列」完全一致。
-      源码注释写明：<b>同一列内必须自上而下购买</b>。</p>
-    <div id="s1iu"></div>
-  </div>
-
-  <div class="card glass wide">
-    <h2>全流程时间线（仿真的前 5 次无限 + 之后的推算）</h2>
-    <div id="s1timeline"></div>
-  </div>
-
-  <div class="card glass wide">
-    <h2>未解问题（先说清楚哪些我没做出来）</h2>
-    <div id="s1open"></div>
-  </div>
+  <section class="s1-block">
+    <h2>敏感性</h2>
+    <div id="s1Sensitivity"></div>
+  </section>
 </main>
 <footer class="glass">
-  <span>步骤顺序与实测时间：《反物质维度安卓通关攻略》第二章　·　成本与机制：IvarK/AntimatterDimensionsSourceCode　·　仿真：js/s1sim.js</span>
+  <span>仿真：js/model.js + js/s1sim.js　·　数据合同：s1-audit-1</span>
   <span>Stage 2 · ② S1</span>
 </footer>
 <script src="js/nav.js"></script>
-<script src="js/s1data.js"></script>
-<script src="js/s1opt.js"></script>
-<script src="js/s1flow.js"></script>
 <script src="js/model.js"></script>
 <script src="js/s1sim.js"></script>
-<script src="js/timing.js"></script>
+<script src="js/s1flow.js"></script>
 <script src="js/s1render.js"></script>
 </body>
 </html>

@@ -1,7 +1,8 @@
 /* ============================================================================
  * S1 段仿真器（s1sim.js）
  * ----------------------------------------------------------------------------
- * 目标：从「1 IP」推到「通关 C9」，全部用源码公式逐 tick 算，不抄攻略时间。
+ * Single-run numerical model; s1route.js owns the cross-run ledger and search.
+ * Model estimates are not game-validated times or a global optimality proof.
  *
  * 建模范围（全部对齐 IvarK/AntimatterDimensionsSourceCode）：
  *   · 维度成本/倍率/计数频率（第一阶段已验证，误差 ~2%）
@@ -107,6 +108,67 @@
     return a;
   }
 
+  function buyTierOneByOne(state, tier, limit) {
+    var purchased = 0;
+    while (purchased < limit && AD.buyDim(state, tier, 1)) purchased++;
+    return purchased;
+  }
+  function buyNormalDimensions(state) {
+    var purchased = 0;
+    for (var tier = S1.maxDimsOf(state); tier >= 1; tier--) {
+      if (tier > 1 && state.dims[tier - 1] <= 0 && state.bought[tier - 1] <= 0) continue;
+      purchased += buyTierOneByOne(state, tier, 2000);
+    }
+    return purchased;
+  }
+  function canBuyChallenge9Tier(state, tier) {
+    if (tier > S1.maxDimsOf(state)) return false;
+    return tier === 1 || state.dims[tier - 1] > 0 || state.bought[tier - 1] > 0;
+  }
+  function hasHigherCostCollision(state, tier) {
+    var exponent = tier ? AD.dimCostExponent(state, tier) : AD.tickCostExponent(state);
+    for (var higherTier = tier + 1; higherTier <= S1.maxDimsOf(state); higherTier++) {
+      if (AD.dimCostExponent(state, higherTier) === exponent) return true;
+    }
+    return false;
+  }
+  function buyChallenge9Group(state, tier, purchaseMode) {
+    if (!canBuyChallenge9Tier(state, tier)) return 0;
+    if (hasHigherCostCollision(state, tier)) return 0;
+    return purchaseMode === "single"
+      ? AD.buyDim(state, tier, 1)
+      : AD.buyDimUntilTen(state, tier);
+  }
+  function buyChallenge9Auto(state, config, autoBuyTimes) {
+    var purchased = 0;
+    var autoTiers = config.c9AutoTiers || [8, 6];
+    var autoIntervals = config.c9AutoIntervals || { 6: 1, 8: 1.2 };
+    var autoBulk = config.c9AutoBulk || 1;
+    for (var index = 0; index < autoTiers.length; index++) {
+      var tier = autoTiers[index];
+      var interval = autoIntervals[tier] || 0.1;
+      if (state.time + 1e-9 < (autoBuyTimes[tier] || interval)) continue;
+      for (var bulk = 0; bulk < autoBulk; bulk++) purchased += buyChallenge9Group(state, tier, config.c9PurchaseMode);
+      autoBuyTimes[tier] = state.time + interval;
+    }
+    return purchased;
+  }
+  function buyChallenge9Manual(state, config, manualBuyState) {
+    var interval = config.c9ManualInterval === undefined ? 0.1 : config.c9ManualInterval;
+    if (state.time + 1e-9 < manualBuyState.nextTime) return 0;
+    var purchased = 0;
+    var manualOrder = config.c9ManualOrder || [7, 6, 5, 4, 3, 2, 1];
+    for (var index = 0; index < manualOrder.length; index++) {
+      purchased += buyChallenge9Group(state, manualOrder[index], config.c9PurchaseMode);
+    }
+    manualBuyState.nextTime = state.time + interval;
+    return purchased;
+  }
+  function buyChallenge9Dimensions(state, config, autoBuyTimes, manualBuyState) {
+    return buyChallenge9Auto(state, config, autoBuyTimes) +
+      buyChallenge9Manual(state, config, manualBuyState);
+  }
+
   // ── 一次「无限 / 挑战」跑的仿真 ────────────────────────────────────────
   /**
    * @param {object} cfg
@@ -116,7 +178,7 @@
    *   ip         : 当前 IP（用于 IU23 未花费 IP 倍率）
    *   ipMult     : IP 翻倍倍率
    *   galaxyCap  : 本跑允许买的星系上限（'inf' = 不限）
-   *   useTick    : 是否购买计数频率（C9 关闭）
+   *   useTick    : Enable Tickspeed purchases; C9 applies the higher-tier collision guard.
    *   maxSeconds : 上限
    *   logDetail  : 'full' | 'coarse' | 'none'
    */
@@ -124,13 +186,15 @@
     cfg = cfg || {};
     var st = AD.newState({
       platform: cfg.platform || 'pc', challenge: cfg.challenge || 0,
+      isS1Audit: !!cfg.isS1Audit,
       infinitiesTotal: cfg.infinities || 1,
       iu: iuFlags(cfg.iuSet || {}),
       ipMultLv: 0,
       brk: !!cfg.brk,
-      adBonus: cfg.adBonus || 1
+      adBonus: cfg.adBonus || 1,
+      tTotal: cfg.tTotal || 0
     });
-    st.achs = cfg.achOverride ? cfg.achOverride : baseAchs(cfg.extraAchs);
+    st.achs = cfg.achOverride ? Object.assign({}, cfg.achOverride) : baseAchs(cfg.extraAchs);
     st.ip = cfg.ipStock !== undefined ? cfg.ipStock : (cfg.ip || 0);
     st.ipMult = cfg.ipMult || 1;
     // 打破无限后：可以带着已购的无限维度进挑战（进入 = 一次大坍缩：
@@ -148,12 +212,12 @@
     st.achDirty = true;
     // 起始状态 = 一次大坍缩之后（skipReset 已经生效）
     st.boosts = S1.startingBoosts(st);
-    if ((st.iu || {}).skipResetGalaxy) st.galaxies = 1;
+    if (!st.challenge && (st.iu || {}).skipResetGalaxy) st.galaxies = 1;
     st.am = S1.startingAM(st); st.maxAM = st.am;
     st.time = 0; std(0);
 
     var galaxyCap = cfg.galaxyCap === undefined ? 'inf' : cfg.galaxyCap;
-    var useTick = cfg.useTick !== false && cfg.challenge !== 9;
+    var useTick = cfg.useTick !== false;
     var maxSec = cfg.maxSeconds || 12 * 3600;
     var detail = cfg.logDetail || 'coarse';
     var log = [];
@@ -161,6 +225,8 @@
     var firstBuy = {};        // 每个维度首次买入的时刻
     var boostAt = [], galAt = [], sacAt = [];
     var boughtNow = 0;
+    var c9AutoBuyTimes = {};
+    var c9ManualBuyState = { nextTime: 0 };
 
     function note(kind, text, extra) {
       if (detail === 'none') return;
@@ -169,37 +235,53 @@
     function std(_) {}
 
     while (st.am < MAXAM && st.time < maxSec && guard++ < 2e6) {
-      // 步长 = 游戏帧间隔（30 fps），与真人在 30/60Hz 下"按住最大"的购买节奏一致。
-      // 步长越大，单位时间内能发生的"买满级联"次数越少，短跑会被显著高估。
+      // Integration cadence and manual cadence are separate assumptions.
+      // This step size is not a claim about the real game's UI refresh rate.
       var dt = cfg.dt || (1 / 30);
       AD.step(st, dt);
       if (st.am > st.maxAM) st.maxAM = st.am;
       AD.checkAchievements(st);
+      if (st.am >= MAXAM) break;
 
-      // 1) 买满维度：8 → 1（等价「按住最大」）
-      for (var tier = S1.maxDimsOf(st); tier >= 1; tier--) {
-        if (tier > 1 && st.dims[tier - 1] <= 0 && st.bought[tier - 1] <= 0) continue;
-        var cnt = 0;
-        while (cnt < 2000) {
-          var got = AD.buyDim(st, tier, 1);
-          if (!got) break;
-          cnt++; boughtNow++;
-        }
-        if (cnt > 0 && firstBuy[tier] === undefined) {
+      // C9 uses one bulk action per manual key press; all other runs use the legacy one-by-one Max loop.
+      var boughtBefore = st.bought.slice();
+      var purchasedThisTick = st.challenge === 9
+        ? buyChallenge9Dimensions(st, cfg, c9AutoBuyTimes, c9ManualBuyState)
+        : buyNormalDimensions(st);
+      boughtNow += purchasedThisTick;
+      for (var tier = 1; tier <= S1.maxDimsOf(st); tier++) {
+        var tierPurchased = st.bought[tier] - boughtBefore[tier];
+        if (tierPurchased > 0 && firstBuy[tier] === undefined) {
           firstBuy[tier] = st.time;
-          note('dim', '首次买入第 ' + tier + ' 维度（买 ' + cnt + ' 个）',
+          note('dim', '首次买入第 ' + tier + ' 维度（买 ' + tierPurchased + ' 个）',
             'AM=' + fmt(st.am) + '  单价=' + fmt(AD.dimCost(st, tier)));
         }
       }
       // 2) 买满计数频率
       if (useTick && st.dims[2] > 0) {
         var tc = 0;
-        while (tc < 3000) { if (!AD.buyTick(st, 1)) break; tc++; }
+        while (tc < 3000) {
+          if (st.challenge === 9 && hasHigherCostCollision(st, 0)) break;
+          if (!AD.buyTick(st, 1)) break;
+          tc++;
+        }
       }
-      // 3) 维度提升（自动维度提升购买器）
-      //    ★ C8 里维度提升倍率 = 1（源码 DimBoost.power 在 C8 直接 return 1），
-      //    第 4 次之后提升只清空维度链、不给任何收益 → 必须停手（攻略："买满 4 次提升就买不动了"）
+      // 3) 星系。源码的自动购买器顺序是 AD → Tickspeed → Galaxy → Dimboost。
+      if (galaxyCap !== 0) {
+        var gg = 0;
+        while (gg++ < 20) {
+          if (galaxyCap !== 'inf' && st.galaxies >= galaxyCap) break;
+          var gr = S1.reqOf(st, 'galaxy');
+          if (st.boosts < 4 || st.dims[gr.tier] < gr.amount - 1e-9) break;
+          if (!AD.doGalaxy(st)) break;
+          galAt.push(st.time);
+          note('galaxy', '第 ' + st.galaxies + ' 个星系',
+            '需要 第' + gr.tier + '维 ≥ ' + gr.amount + '  重置后 AM=' + fmt(st.am));
+        }
+      }
+      // 4) 维度提升。达到指定星系数前限制提升, 以免抢走购买星系所需的第 8 维。
       var capB = (st.challenge === 8) ? 5 : (cfg.boostCap === undefined ? 1e9 : cfg.boostCap);
+      if (cfg.boostUntilGalaxies !== undefined && st.galaxies >= cfg.boostUntilGalaxies) capB = 1e9;
       var bg = 0;
       while (bg++ < 60 && st.boosts < capB) {
         var r = S1.reqOf(st, 'boost');
@@ -208,22 +290,8 @@
         AD.doDimBoost(st);
         boostAt.push(st.time);
         note('boost', '第 ' + st.boosts + ' 次维度提升',
-          '需要 第' + r.tier + '维 ≥ ' + r.amount + '  当时 AM=' + fmt(st.am));
+          '需要 第' + r.tier + '维 ≥ ' + r.amount + '  重置后 AM=' + fmt(st.am));
         if (st.boosts <= before) break;
-      }
-      // 4) 星系
-      if (galaxyCap !== 0) {
-        var gg = 0;
-        while (gg++ < 20) {
-          if (galaxyCap !== 'inf' && st.galaxies >= galaxyCap) break;
-          var gr = S1.reqOf(st, 'galaxy');
-          if (st.boosts < 4) break;
-          if (st.dims[gr.tier] < gr.amount - 1e-9) break;
-          if (!AD.doGalaxy(st)) break;
-          galAt.push(st.time);
-          note('galaxy', '第 ' + st.galaxies + ' 个星系',
-            '需要 第' + gr.tier + '维 ≥ ' + gr.amount + '  当时 AM=' + fmt(st.am));
-        }
       }
       // 5) 献祭
       //    C8：只要有多倍收益就献祭（chall8TotalSacrifice 跨献祭累积，是 C8 的唯一倍率来源）
@@ -248,7 +316,7 @@
         if (wantSac) {
           AD.doSacrifice(st);
           sacAt.push(st.time);
-          if (detail === 'full' && sacAt.length <= 12) {
+          if (detail === 'full' && (cfg.isS1Audit || sacAt.length <= 12)) {
             note('sac', '献祭 #' + sacAt.length + '（本次倍率 ×' + nb.toFixed(2) + '）',
               '累计献祭倍率=' + fmt(S1.totalBoostOf(st)) + '  AM=' + fmt(st.am));
           }
@@ -269,6 +337,8 @@
       sacCount: sacAt.length, boosts_: boostAt.length,
       infPower: st.infPower, idBought: st.idBought.slice(),
       idAmounts: st.idAmt.slice(), ipLeft: st.ip, maxAMAll: st.maxAMAll,
+      finalAM: st.am, maxAM: st.maxAM, costBumps: st.costBumps.slice(),
+      tickCostBumps: st.chall9TickBumps, totalTime: st.tTotal,
       finalSacBoost: window.AD.s1.totalBoostOf(st), maxSacNext: st.maxSacNext,
       firstBuy: firstBuy, boostAt: boostAt, galAt: galAt,
       log: log,

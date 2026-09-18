@@ -192,8 +192,8 @@
     if (a[21]) v = Math.max(v, 100);
     if (a[37]) v = Math.max(v, 5000);
     if (a[54]) v = Math.max(v, 5e5);
-    if (a[55]) v = Math.max(v, 1e6);
-    if (a[78]) v = Math.max(v, 1e10);
+    if (a[55]) v = Math.max(v, s.isS1Audit ? 5e10 : 1e6);
+    if (a[78]) v = Math.max(v, s.isS1Audit ? 5e25 : 1e10);
     return v;
   }
 
@@ -216,6 +216,7 @@
     opts = opts || {};
     var s = {
       platform: opts.platform || 'pc',
+      isS1Audit: !!opts.isS1Audit,
       am: opts.am !== undefined ? opts.am : START_AM,
       dims: new Array(9).fill(0),
       bought: new Array(9).fill(0),
@@ -240,21 +241,21 @@
       infinitiesTotal: opts.infinitiesTotal || 0,
       iu: opts.iu ? Object.assign({}, opts.iu) : {},
       ipMultLv: opts.ipMultLv || 0,
-      tTotal: 0,
+      tTotal: opts.tTotal || 0,
       maxDimMult: 0,
       ticksPerSecond: 1,
       achPower: 1, perDimAch: new Array(9).fill(1), tickAch: 1,
       achDirty: true, sacBoost: 1, sacDirty: true
     };
     if (opts.achs) for (var k in opts.achs) s.achs[k] = true;
-    ACHIEVEMENTS.forEach(function (a) { if (a.default) s.achs[a.id] = true; });
+    ACHIEVEMENTS.forEach(function (a) { if (a.default && !s.isS1Audit) s.achs[a.id] = true; });
     if (opts.boosts !== undefined && opts.galaxies !== undefined) grantInevitables(s);
     return s;
   }
 
   function cloneState(s) {
     var c = {
-      platform: s.platform, am: s.am,
+      platform: s.platform, isS1Audit: s.isS1Audit, am: s.am,
       dims: s.dims.slice(), bought: s.bought.slice(),
       ticksBought: s.ticksBought, sacrificed: s.sacrificed,
       boosts: s.boosts, galaxies: s.galaxies, time: s.time,
@@ -284,9 +285,12 @@
     //  - 星系阶段 (G>=1,B=0)：上一阶段为了买星系必然买满 1~8
     var nDims = (G >= 1) ? 8 : (B === 0 ? 0 : Math.min(B + 3, 8));
     for (var t = 1; t <= nDims; t++) s.achs[10 + t] = true;
-    s.achs[22] = true; s.achs[35] = true; s.achs[76] = true;
+    if (!s.isS1Audit) { s.achs[22] = true; s.achs[35] = true; s.achs[76] = true; }
     if (B >= 10) s.achs[25] = true;
-    if (G >= 1) { s.achs[24] = true; s.achs[26] = true; s.achs[36] = true; }
+    if (G >= 1) {
+      s.achs[26] = true;
+      if (!s.isS1Audit) { s.achs[24] = true; s.achs[36] = true; }
+    }
     if (G >= 2) s.achs[27] = true;
     s.achDirty = true;
   }
@@ -327,6 +331,7 @@
     for (var i = 0; i < ACHIEVEMENTS.length; i++) {
       var a = ACHIEVEMENTS[i];
       if (!a.cond || s.achs[a.id]) continue;
+      if (s.isS1Audit && [36, 57, 68, 72].includes(a.id)) continue;
       if (a.cond(s)) { s.achs[a.id] = true; changed = true; }
     }
     if (changed) refreshAchCache(s);
@@ -344,9 +349,19 @@
   function dimCostUntil10(s, tier) {
     return dimCost(s, tier) * (10 - (s.bought[tier] % 10));
   }
+  function dimCostExponent(s, tier) {
+    var c6 = s.challenge === 6;
+    var base = c6 ? C6_BASE_COST[tier] : DIM_BASE_COST[tier];
+    var mult = c6 ? C6_BASE_COST_MULT[tier] : DIM_COST_MULT[tier];
+    var steps = Math.floor(s.bought[tier] / 10) + (s.costBumps ? s.costBumps[tier] : 0);
+    return Math.floor(Math.log10(base) + Math.log10(mult) * steps + 1e-12);
+  }
   function tickCost(s) {
     return TICKSPEED_BASE_COST * Math.pow(TICKSPEED_COST_MULT,
       s.ticksBought + (s.chall9TickBumps || 0));
+  }
+  function tickCostExponent(s) {
+    return 3 + s.ticksBought + (s.chall9TickBumps || 0);
   }
 
   // ------------------------------------------------------------ 需求与解锁
@@ -382,7 +397,8 @@
       var d = g - GALAXY_COST_SCALING_START + 1;
       amount += d * d + d;
     }
-    return { tier: tier, amount: Math.floor(amount) };
+    amount -= (s && s.iu && s.iu.resetBoost) ? 9 : 0;
+    return { tier: tier, amount: Math.max(1, Math.floor(amount)) };
   }
   function galaxyReq(galaxies) {
     var amount = GALAXY_BASE_COST + galaxies * GALAXY_COST_MULT;
@@ -416,14 +432,12 @@
     //   由于广告加成使游戏全局速率×2」）。两者相乘 → 安卓满配 ≈ ×4 产能
     var adB = s.adBonus || 1;
     var c = s.challenge || 0, iu = s.iu || {};
-    // 无限升级的公共倍率
+    // 无限升级的公共倍率。IU11 读取整局总时间；IU13 只读取本次无限时间。
     var iuCommon = 1;
-    if (iu.dim18 || iu.dim27 || iu.dim36 || iu.dim45) {
-      iuCommon *= 1 + (s.infinitiesTotal || 0) * 0.2;
-    }
-    if (iu.timeMult) iuCommon *= Math.pow(Math.max((s.tTotal || s.time || 0) / 120, 1), 0.15);
+    var infinityDimMult = 1 + (s.infinitiesTotal || 0) * 0.2;
+    if (iu.timeMult) iuCommon *= Math.pow(Math.max((s.tTotal || 0) / 120, 1), 0.15);
     if (iu.timeMult2) {
-      var v2 = Math.pow(Math.max((s.tTotal || s.time || 0) / 240, 1), 0.25);
+      var v2 = Math.pow(Math.max((s.time || 0) / 240, 1), 0.25);
       if (v2 > 1) iuCommon *= v2;
     }
     if (iu.buy10) iuCommon *= 1;                       // buy10 只影响买十倍率，见下
@@ -442,14 +456,18 @@
     var maxM = 0;
     for (var t = 1; t <= 8; t++) {
       var m = DIM_FLOW[t] * power * s.perDimAch[t] * iuCommon * p2;
+      if ((t === 1 || t === 8) && iu.dim18) m *= infinityDimMult;
+      if ((t === 2 || t === 7) && iu.dim27) m *= infinityDimMult;
+      if ((t === 3 || t === 6) && iu.dim36) m *= infinityDimMult;
+      if ((t === 4 || t === 5) && iu.dim45) m *= infinityDimMult;
       var b = Math.floor(s.bought[t] / 10);
       if (b) m *= Math.pow(buy10, b);
       var bp = s.boosts - t + 1;
       if (bp > 0) m *= Math.pow(dbPower, bp);
       if (t === 8) m *= s.sacBoost;
       if (t === 1 && c === 3) m *= s.chall3Pow;        // C3：第 1 维度弱化+指数倍率
-      if (t === 1 && iu.unspentIP && (s.ip || 0) > 0) {
-        m *= Math.pow(Math.max(s.ip / 2, 1), 1.5);
+      if (t === 1 && iu.unspentIP) {
+        m *= Math.pow(Math.max(s.ip, 0) / 2, 1.5) + 1;
       }
       if (c === 12 && (t === 2 || t === 4 || t === 6) && s.dims[t] > 1) {
         m *= Math.pow(s.dims[t], t === 2 ? 0.6 : (t === 4 ? 0.4 : 0.2));
@@ -492,6 +510,7 @@
       s.am = am > INFINITY_AM ? INFINITY_AM : am;
     }
     s.time += dt;
+    s.tTotal += dt;
     if (s.am > (s.maxAMAll || 0)) s.maxAMAll = s.am;
     idTick(s, dt);
 
@@ -517,38 +536,64 @@
   }
 
   // ---------------------------------------------------------------- 动作
+  function applyDimensionPurchaseEffects(s, tier) {
+    if (s.isS1Audit && !s.achs[10 + tier]) { s.achs[10 + tier] = true; s.achDirty = true; }
+    if (s.challenge === 2) s.chall2Pow = 0;
+    if (s.challenge !== 4) return;
+    for (var lowerTier = 1; lowerTier < tier; lowerTier++) s.dims[lowerTier] = 0;
+  }
   function buyDim(s, tier, count) {
     count = count || 1;
-    var n = 0;
-    for (; n < count; n++) {
-      var c = dimCost(s, tier);
-      if (c > s.am) break;
-      s.am -= c;
-      if (s.bought[tier] % 10 === 9) costBump(s, tier);   // 第 10 个 → 同价跳档
+    var purchased = 0;
+    for (; purchased < count; purchased++) {
+      var cost = dimCost(s, tier);
+      if (cost > s.am) break;
+      s.am -= cost;
+      if (s.bought[tier] % 10 === 9) costBump(s, tier);
       s.dims[tier] += 1;
       s.bought[tier] += 1;
-      if (s.challenge === 2) s.chall2Pow = 0;
-      if (s.challenge === 4) for (var k = 1; k < tier; k++) s.dims[k] = 0;
-      n++;
+      applyDimensionPurchaseEffects(s, tier);
     }
-    return n;
+    return purchased;
   }
-  /** C9：买满 10 个维度时，所有「同价位」（成本指数相同）的东西跳到下一档 */
+  function purchaseDimensionBatch(s, tier, purchased, cost) {
+    if (purchased < 1) return 0;
+    s.am -= cost * purchased;
+    costBump(s, tier);
+    s.dims[tier] += purchased;
+    s.bought[tier] += purchased;
+    applyDimensionPurchaseEffects(s, tier);
+    return purchased;
+  }
+  function buyDimBulk(s, tier) {
+    var cost = dimCost(s, tier);
+    if (!(cost <= s.am)) return 0;
+    var remaining = 10 - (s.bought[tier] % 10);
+    var affordable = Math.floor(s.am / cost);
+    return purchaseDimensionBatch(s, tier, Math.min(remaining, affordable), cost);
+  }
+  function buyDimUntilTen(s, tier) {
+    var cost = dimCost(s, tier);
+    var remaining = 10 - (s.bought[tier] % 10);
+    if (!(cost * remaining <= s.am)) return 0;
+    return purchaseDimensionBatch(s, tier, remaining, cost);
+  }
+  /** C9 compares Decimal exponents before the purchased item advances to its next cost step. */
   function costBump(s, tier) {
     if (s.challenge !== 9) return;
-    var e = Math.floor(Math.log10(dimCost(s, tier)));
-    for (var k = 1; k <= 8; k++) {
-      if (k === tier) continue;
-      if (Math.floor(Math.log10(dimCost(s, k))) === e) s.costBumps[k] += 1;
+    var exponent = dimCostExponent(s, tier);
+    for (var otherTier = 1; otherTier <= 8; otherTier++) {
+      if (otherTier === tier) continue;
+      if (dimCostExponent(s, otherTier) === exponent) s.costBumps[otherTier] += 1;
     }
-    if (Math.floor(Math.log10(tickCost(s))) === e) s.chall9TickBumps += 1;
+    if (tickCostExponent(s) === exponent) s.chall9TickBumps += 1;
   }
-  /** C9：买计数频率时同理 */
+  /** C9 applies the same pre-purchase exponent comparison to a Tickspeed purchase. */
   function costBumpTick(s) {
     if (s.challenge !== 9) return;
-    var e = Math.floor(Math.log10(tickCost(s)));
-    for (var k = 1; k <= 8; k++) {
-      if (Math.floor(Math.log10(dimCost(s, k))) === e) s.costBumps[k] += 1;
+    var exponent = tickCostExponent(s);
+    for (var tier = 1; tier <= 8; tier++) {
+      if (dimCostExponent(s, tier) === exponent) s.costBumps[tier] += 1;
     }
   }
   function buyTick(s, count) {
@@ -607,6 +652,12 @@
     applyReset(s);
     if (s.boosts < 1) s.boosts = 1;
   }
+  function loseDimBoost(s) {
+    if (s.challenge !== 9 || s.boosts < 1) return false;
+    s.boosts -= 1;
+    applyReset(s);
+    return true;
+  }
   function doGalaxy(s) {
     if (s.challenge === 8 || s.challenge === 10) return false;   // C8/C10 不能买星系
     s.galaxies += 1; s.boosts = 0;
@@ -615,15 +666,16 @@
   }
 
   /**
-   * 大坍缩（big-crunch.js）
-   *   IP = floor( IPmult × 10^(log10(maxAM)/308 − 0.75) )
-   *   重置：boosts=0, galaxies=0, 维度/计数频率/献祭全部清空（skipReset 重新给）
+   * 大坍缩（game.js: gainedInfinityPoints）
+   *   未打破无限：IP = floor(308 / div × IPmult)，首次无限阶段 div = 308。
+   *   已打破无限：IP = floor(10^(log10(maxAM) / div - 0.75) × IPmult)。
+   *   重置：boosts=0, galaxies=0, 维度/计数频率/献祭全部清空（skipReset 重新给）。
    */
   function bigCrunch(s) {
     if (s.am < INFINITY_AM && s.maxAM < INFINITY_AM) return null;
     var gained = ipGain(s);
     s.ip += gained; s.crunches += 1; s.infinitiesTotal += 1;
-    s.t = 0; s.tTotal += 0;
+    s.time = 0;
     s.boosts = 0; s.galaxies = 0;
     applyReset(s);
     idReset(s);            // 无限之力清零、ID 数量回到 baseAmount
@@ -677,10 +729,12 @@
     return isFinite(v) ? v : 1.7976931348623157e308;
   }
   function ipGain(s) {
-    var maxAM = Math.max(s.maxAM, s.am, 1);
-    var logv = Math.log10(maxAM) / 308 - 0.75;
-    if (logv < 0) return 0;
-    return Math.floor(Math.pow(10, logv) * (s.ipMult || 1));
+    var ipMultiplier = s.ipMult || 1;
+    if (!s.brk) return Math.floor(ipMultiplier);
+    var maxAntimatter = Math.max(s.maxAM, s.am, 1);
+    var gainExponent = Math.log10(maxAntimatter) / 308 - 0.75;
+    if (gainExponent < 0) return 0;
+    return Math.floor(Math.pow(10, gainExponent) * ipMultiplier);
   }
   function requirementMet(s, req) { return s.dims[req.tier] >= req.amount; }
 
@@ -699,14 +753,15 @@
     newState: newState, cloneState: cloneState, grantInevitables: grantInevitables,
     achCount: achCount, achRows: achRows, refreshAchCache: refreshAchCache,
     checkAchievements: checkAchievements,
-    dimCost: dimCost, dimCostUntil10: dimCostUntil10, tickCost: tickCost,
+    dimCost: dimCost, dimCostUntil10: dimCostUntil10, dimCostExponent: dimCostExponent,
+    tickCost: tickCost, tickCostExponent: tickCostExponent,
     dimBoostReq: dimBoostReq, galaxyReq: galaxyReq,
     maxDims: maxDims, dimUnlocked: dimUnlocked,
     computeMults: computeMults, ticksPerSecond: ticksPerSecond,
     productions: productions, amRate: amRate,
-    step: step, buyDim: buyDim, buyTick: buyTick,
+    step: step, buyDim: buyDim, buyDimBulk: buyDimBulk, buyDimUntilTen: buyDimUntilTen, buyTick: buyTick,
     canSacrifice: canSacrifice, doSacrifice: doSacrifice,
-    doDimBoost: doDimBoost, doGalaxy: doGalaxy,
+    doDimBoost: doDimBoost, loseDimBoost: loseDimBoost, doGalaxy: doGalaxy,
     requirementMet: requirementMet,
     s1: {
       sacExp: sacExp, sacrificeNextBoost: sacrificeNextBoost, totalBoostOf: totalBoostOf,
