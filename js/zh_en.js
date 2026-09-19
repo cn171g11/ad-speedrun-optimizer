@@ -1,11 +1,16 @@
 /* 自动生成：zh→en 字典（tools/assemble_dict.py）*/
 window.ZH_EN = {
 "与": "and",
-"个": "",
+"个": "item",
 "分": "min",
 "慢": "slower",
 "或": "or",
-"时": "",
+"时": "time",
+"优化": "optimize",
+"翻译": "translate",
+"功能": "feature",
+"补充": "supplement",
+"完整": "complete",
 "是": "is",
 "次": " times",
 "省": "save",

@@ -1,5 +1,3 @@
-# 临时/调试产物
-_*.tmp
-_*_profile/
-*.log
-node_modules/
+(js/zh_en.js is a source file, so no need to add anything to .gitignore)
+
+(empty)
