@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>② Break · ID1 → C9 | 对数基线工作台</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="break.css" />
+</head>
+<body>
+<header class="topbar glass">
+  <div class="brand">
+    <span class="logo">BI</span>
+    <div>
+      <h1>Break → ID1 → C9 · 对数基线</h1>
+      <p>独立 post-break 仿真，不参与 S1 直接路线排名</p>
+    </div>
+  </div>
+  <div class="break-contract" id="breakContract"></div>
+</header>
+<main>
+  <nav class="subnav glass" id="subnav"></nav>
+
+  <section class="break-scope">
+    <div class="scope-title">验证范围</div>
+    <p>本页使用 `sourceMode=break-log`、`numericMode=log10`。AM、IP、无限之力和维度数量以 <code>log10</code> 保存，可覆盖 <code>1e1100</code>；当前 runner 使用预置的挑战内维度，不自动求解完整 C9 购买路线。</p>
+    <div class="scope-grid">
+      <span><b>已覆盖</b> ID1 解锁、逐购成本、ID 产量、无限之力、C9 目标与同指数跳档</span>
+      <span><b>未覆盖</b> C12 → Break → IP 农场 → ID1 的全程最优路线</span>
+      <span><b>隔离</b> 不读取 `s1flow.js`，不修改 direct-double 结果</span>
+    </div>
+  </section>
+
+  <section class="break-grid">
+    <div class="break-panel glass">
+      <h2>挑战内起点</h2>
+      <div class="break-field-row">
+        <label>挑战
+          <select id="breakChallenge">
+            <option value="9" selected>C9 · Tickspeed Autobuyer</option>
+          </select>
+        </label>
+        <label>预置 ID
+          <select id="breakIdPreset">
+            <option value="id1" selected>ID1 × 1</option>
+            <option value="none">无 ID（验证不可达）</option>
+          </select>
+        </label>
+      </div>
+      <div class="break-field-row">
+        <label>起始 AM · log10
+          <input id="breakStartAM" type="number" value="100" step="0.001" />
+        </label>
+        <label>本永恒最高 AM · log10
+          <input id="breakMaxAMAll" type="number" value="1200" step="0.001" />
+        </label>
+      </div>
+      <div class="break-field-row">
+        <label>起始 IP · log10
+          <input id="breakStartIP" type="number" value="8" step="0.001" />
+        </label>
+        <label>成就倍率 · log10
+          <input id="breakAchMult" type="number" value="6" step="0.001" />
+        </label>
+      </div>
+      <div class="break-field-row">
+        <label>步长 · 秒
+          <input id="breakDt" type="number" value="0.1" min="0.001" step="0.001" />
+        </label>
+        <label>最大时间 · 秒
+          <input id="breakMaxSeconds" type="number" value="100000" min="0.1" step="1" />
+        </label>
+      </div>
+      <label>预置 AD 数量 · log10（AD1, AD2, ... AD8）
+        <input id="breakStartDims" type="text" value="100,100,100,100,100,100,100,100" />
+      </label>
+      <div class="break-actions">
+        <button id="breakRun" class="btn" type="button">运行对数基线</button>
+        <span id="breakRunHint" class="hint">时间是 challenge-internal seconds，不是从 1 IP 开始的全程时间。</span>
+      </div>
+    </div>
+
+    <div class="break-panel glass">
+      <h2>结果合同</h2>
+      <div id="breakResult" class="break-result empty">尚未运行</div>
+    </div>
+  </section>
+
+  <section class="break-panel glass">
+    <h2>ID 解锁与首购边界</h2>
+    <div id="breakIdTable" class="table-scroll"></div>
+  </section>
+
+  <section class="break-panel glass">
+    <h2>C9 机制检查</h2>
+    <p class="break-note">仅检查源码级 cost.e 触发边界：买满第 10 个 AD 或购买 tickspeed 时才比较同指数项目。该表不是完整购买器或路线优化器。</p>
+    <div id="breakC9Checks"></div>
+  </section>
+
+  <section class="break-panel glass">
+    <h2>四个边界</h2>
+    <div id="breakBoundaries"></div>
+  </section>
+</main>
+<footer class="glass">
+  <span>仿真：js/logmath.js + js/breaksim.js　·　合同：break-log / log10</span>
+  <span>Stage 2 · Break baseline</span>
+</footer>
+<script src="js/nav.js"></script>
+<script src="js/logmath.js"></script>
+<script src="js/breaksim.js"></script>
+<script src="js/breakrender.js"></script>
+</body>
+</html>

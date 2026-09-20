@@ -25,7 +25,11 @@
   var DIM_COST_MULT = [0, 1e3, 1e4, 1e5, 1e6, 1e8, 1e10, 1e12, 1e15];
   // ── 无限维度（源码 dimensions/infinity-dimension.js）──────────────────
   //   UNLOCK 用「本次永恒内的最高 AM」判定；ID1 额外需要 1e8 IP
-  var ID_UNLOCK = [0, 1e1100, 1e1900, 1e2400, 1e10500, 1e30000, 1e45000, 1e54000, 1e60000];
+  //   阈值以 log10 形式保存：double 下 1e1100 等字面量会直接溢出成 Infinity，
+  //   导致 model.js 一加载就得到 Infinity。这里存 log10，避免加载即溢出。
+  //   ID_UNLOCK 保留为向后兼容的安全导出（同义 log10 值），新增 ID_UNLOCK_LOG 供 idUnlocked 使用。
+  var ID_UNLOCK_LOG = [0, 1100, 1900, 2400, 10500, 30000, 45000, 54000, 60000];
+  var ID_UNLOCK = ID_UNLOCK_LOG.slice();
   var ID_BASE_COST = [0, 1e8, 1e9, 1e10, 1e20, 1e140, 1e200, 1e250, 1e280];
   var ID_COST_MULT = [0, 1e3, 1e6, 1e8, 1e10, 1e15, 1e20, 1e25, 1e30];
   var ID_POWER_MULT = [0, 50, 30, 10, 5, 5, 5, 5, 5];   // 每次购买给的倍率底数
@@ -218,6 +222,9 @@
       platform: opts.platform || 'pc',
       isS1Audit: !!opts.isS1Audit,
       am: opts.am !== undefined ? opts.am : START_AM,
+      // 本局达到过的最高反物质；brk=true 时 IP 公式(ipGain)与 bigCrunch 都依赖它，
+      // 必须初始化成起始/current AM，避免未赋值时 Math.max(undefined,...) 得到 NaN。
+      maxAM: opts.maxAM !== undefined ? opts.maxAM : (opts.am !== undefined ? opts.am : START_AM),
       dims: new Array(9).fill(0),
       bought: new Array(9).fill(0),
       ticksBought: opts.ticksBought || 0,
@@ -255,7 +262,7 @@
 
   function cloneState(s) {
     var c = {
-      platform: s.platform, isS1Audit: s.isS1Audit, am: s.am,
+      platform: s.platform, isS1Audit: s.isS1Audit, am: s.am, maxAM: s.maxAM,
       dims: s.dims.slice(), bought: s.bought.slice(),
       ticksBought: s.ticksBought, sacrificed: s.sacrificed,
       boosts: s.boosts, galaxies: s.galaxies, time: s.time,
@@ -503,11 +510,13 @@
       // C12：每个维度产出「低 2 档」的维度；第 1、2 维度都产反物质
       for (var t12 = M; t12 >= 3; t12--) s.dims[t12 - 2] += p[t12] * dt;
       var am12 = s.am + (p[1] + p[2]) * dt;
-      s.am = am12 > INFINITY_AM ? INFINITY_AM : am12;
+      // 未打破无限：AM 封顶到游戏内 Infinity。打破无限后 double 路径无法表示超大数，
+      // 不再用 Number.MAX_VALUE 伪装支持，也不截断——溢出成 Infinity 即「超出范围、明确不可用」，且不返回 NaN。
+      s.am = (!s.brk && (am12 > INFINITY_AM || !isFinite(am12))) ? INFINITY_AM : am12;
     } else {
       for (var t = M; t >= 2; t--) s.dims[t - 1] += p[t] * dt;
       var am = s.am + p[1] * dt;
-      s.am = am > INFINITY_AM ? INFINITY_AM : am;
+      s.am = (!s.brk && (am > INFINITY_AM || !isFinite(am))) ? INFINITY_AM : am;
     }
     s.time += dt;
     s.tTotal += dt;
@@ -559,7 +568,10 @@
   function purchaseDimensionBatch(s, tier, purchased, cost) {
     if (purchased < 1) return 0;
     s.am -= cost * purchased;
-    costBump(s, tier);
+    // 仅当本次批量跨过「第 10 个」(bought 达到 10 的整数倍) 时才触发 C9 costBump；
+    // 只买到部分组不得误触发。costBump 必须在 bought 自增前调用，使用购买前 exponent，
+    // 与 buyDim 的 `bought%10===9` 判定一致（同一成本组 floor(bought/10) 恒定），保证直接 C9 流程不变。
+    if ((s.bought[tier] + purchased) % 10 === 0) costBump(s, tier);
     s.dims[tier] += purchased;
     s.bought[tier] += purchased;
     applyDimensionPurchaseEffects(s, tier);
@@ -685,7 +697,10 @@
   function idUnlocked(s, t) {
     if (!s.brk) return false;
     if (t === 1 && !(s.ip >= 1e8)) return false;        // ID1 额外要 1e8 IP（pre-eternity）
-    return (s.maxAMAll || 0) >= ID_UNLOCK[t];
+    // double 路径下 maxAMAll 不可能真正达到 1e1100；超大数由对数域仿真(stagesim)处理。
+    // 对溢出 / 非有限值明确判为不可用（返回 false），且绝不返回 NaN。
+    if (!(s.maxAMAll > 0) || !isFinite(s.maxAMAll)) return false;
+    return Math.log10(s.maxAMAll) >= ID_UNLOCK_LOG[t];
   }
   /** 第 t 层倍率：含 powerMultiplier^(已购次数) —— 50^p / 30^p / 10^p / 5^p */
   function idMult(s, t) { return Math.pow(ID_POWER_MULT[t], s.idBought[t]); }
@@ -720,7 +735,8 @@
       if (!idUnlocked(s, t)) continue;
       s.idAmt[t - 1] += idProduction(s, t) * dt / 10;      // produceDimensions(diff/10)
     }
-    if (idUnlocked(s, 1)) s.infPower += idProduction(s, 1) * dt / 1000;
+    // The game loop passes elapsed seconds to produceCurrency, so ID1 is already a per-second rate.
+    if (idUnlocked(s, 1)) s.infPower += idProduction(s, 1) * dt;
   }
   /** 无限之力给全部反物质维度的倍率 = IPower^7（下限 1） */
   function infPowerEffect(s) {
@@ -771,7 +787,7 @@
       maxDimsOf: maxDimsOf, reqOf: reqOf, tickSpeedFactorOf: tickSpeedFactorOf
     },
     id: {
-      UNLOCK: ID_UNLOCK, BASE_COST: ID_BASE_COST, COST_MULT: ID_COST_MULT,
+      UNLOCK: ID_UNLOCK, UNLOCK_LOG: ID_UNLOCK_LOG, BASE_COST: ID_BASE_COST, COST_MULT: ID_COST_MULT,
       POWER_MULT: ID_POWER_MULT, POWER_CONV: ID_POWER_CONV,
       unlocked: idUnlocked, mult: idMult, production: idProduction, cost: idCost,
       buy: buyID, buyMax: buyMaxID, reset: idReset, tick: idTick,

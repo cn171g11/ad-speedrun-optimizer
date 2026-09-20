@@ -6,6 +6,7 @@
     { href: './stage1.html',         label: 'Ⅰ 首次无限',      desc: '第一阶段：逐 tick 最短路' },
     { href: './stage2.html',         label: 'Ⅱ 阶段总览',      desc: '首次无限 → 首次永恒' },
     { href: './stage2-s1.html',      label: 'Ⅱ-S1 操作表',     desc: '1 IP → C9：手动/自动/时机' },
+    { href: './stage2-break.html',    label: 'Ⅱ-Break 基线',    desc: 'Break → ID1 → C9：对数域边界' },
     { href: './stage2-sim.html',     label: 'Ⅱ-仿真',          desc: '对数空间逐 tick' },
     { href: './stage2-formula.html', label: 'Ⅱ-公式',          desc: '常数与边界' },
     { href: './stage3.html',         label: 'Ⅲ 永恒 → Cel7',   desc: '永恒/现实/天体 里程碑' },
